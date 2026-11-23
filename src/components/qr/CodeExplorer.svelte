@@ -204,6 +204,12 @@
       <code class="codeword">{bitsOf(sent, width).join('')}</code>.
     {/if}
   </p>
+  {#if isFormat && (codeword === 0 || codeword === 2 ** width - 1)}
+    <p class="note">
+      Without the mask, every stored bit would be {codeword ? 1 : 0}. This is the flipped twin of
+      {codeword ? 'level M with mask 000, whose bits are all 0' : 'level Q with mask 111, whose bits are all 1'}.
+    </p>
+  {/if}
 
   <h4>Decoding</h4>
   <p class="step">

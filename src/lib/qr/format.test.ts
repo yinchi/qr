@@ -51,6 +51,13 @@ describe('format information', () => {
     expect([...distances.values()].reduce((a, b) => a + b)).toBe((32 * 31) / 2);
   });
 
+  it('pairs every valid string with its flipped twin, M/000 with Q/111', () => {
+    const unmasked = new Set(FORMAT_CODEWORDS.map((c) => c.bits ^ FORMAT_INFO_MASK));
+    for (const bits of unmasked) expect(unmasked.has(bits ^ 0x7fff)).toBe(true);
+    expect(formatInfoBits('M', 0b000) ^ FORMAT_INFO_MASK).toBe(0);
+    expect(formatInfoBits('Q', 0b111) ^ FORMAT_INFO_MASK).toBe(0x7fff);
+  });
+
   it('decodes the example in C.3: two bits wrong, level M, mask 011', () => {
     // C.3 compares unmasked strings; the symbol holds them XORed with the mask.
     const read = 0b000011101001001 ^ FORMAT_INFO_MASK;

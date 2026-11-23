@@ -124,6 +124,14 @@ Last, the 15 bits are XORed with the fixed pattern `101010000010010`. Without it
 give all-zero data and an all-zero remainder, and the standard requires that the format information is never all zeros
 (C.2). XORing the same pattern into every valid string doesn't change how many bits any two of them differ in.
 
+There is a matching case at the other extreme. Level Q (`11`) with mask `111` gives the data bits `11111`, and their
+error correction bits come out as `1111111111`, so without the mask all 15 bits would be 1s. That is no coincidence:
+flipping every bit of a valid string always gives another valid string. Valid strings are the multiples of $G(x)$, and
+adding two multiples of $G(x)$ gives another one. The all-1s string is itself valid, and flipping every bit is the same
+as adding (XORing) the all-1s string, so the flipped string is valid too. Every valid string has its flipped twin, and
+M/`000` and Q/`111` are the twins of each other. The standard only mentions all zeros, but the mask breaks up both: after
+it, no stored string has more than 6 identical bits in a row.
+
 Try it below: choose a level and mask to follow the division step by step, then flip some bits to see how a scanner
 decodes them. The default, level M with mask `101`, is the standard's own example, which needs only one division step.
 
@@ -137,6 +145,8 @@ closest, the one that differs in the fewest bits, as long as it differs in no mo
 Why 3? Every pair of valid strings differs in at least 7 bits, as this table of every pair shows:
 
 <CodeDistances kind="format" />
+
+The 16 pairs that differ in all 15 bits are the flipped twins described above.
 
 If at most 3 bits were misread, the string that was sent is at most 3 bits away from what was read, and every other
 valid string is at least $7 - 3 = 4$ bits away. The closest is then always the right one. With 4 or more errors, what
