@@ -4,6 +4,128 @@ title: Encoding the data
 description: Turning text into bits with the numeric, alphanumeric, byte and kanji modes.
 ---
 
+import BitstreamBuilder from '../../components/qr/BitstreamBuilder.svelte';
+import ModeEncoder from '../../components/qr/ModeEncoder.svelte';
+
+The data in a QR code is stored as one long stream of bits, which is then cut into the 8-bit codewords counted in
+[chapter 2](../format/#error-correction-levels). Before turning text into bits, the encoder chooses a _mode_, which
+decides which characters can be stored and how compactly. This chapter covers the four modes, then how the bits are put
+together and padded to fill the code.
+
 ## Encoding modes
 
+| Mode         | Characters                                    | Bits per character | Mode indicator |
+| ------------ | --------------------------------------------- | -----------------: | -------------- |
+| Numeric      | `0`–`9`                                       |             3⅓ | `0001`         |
+| Alpha­numeric | `0`–`9`, `A`–`Z`, space and `$ % * + - . / :` |              5½ | `0010`         |
+| Byte         | Any byte                                      |                  8 | `0100`         |
+| Kanji        | Japanese characters in Shift JIS              |                 13 | `1000`         |
+
+The fewer characters a mode allows, the fewer bits each one needs (ISO/IEC 18004, 7.3). The mode indicator is the
+4-bit code that tells a scanner which mode follows (Table 2).
+
+Numeric and alphanumeric modes share a trick. Instead of storing each character on its own, they treat a small group of
+characters as the digits of one number, in base 10 or base 45, and store that number in binary. That wastes almost no
+bits.
+
+### Numeric mode
+
+Digits are taken three at a time. Three digits make a number from 0 to 999, which fits in 10 bits, since
+$2^{10} = 1024$. For example, `012` is the number 12, stored as `0000001100`. If one or two digits are left over at the
+end, they take 4 or 7 bits (7.4.3).
+
+So three digits cost 10 bits, about 3.33 bits each. The least possible is $\log_2 10 \approx 3.32$ bits per digit, so
+numeric mode wastes almost nothing.
+
+### Alphanumeric mode
+
+Each of the 45 characters has a value from 0 to 44 (Table 5): the digits are 0 to 9, `A` to `Z` are 10 to 35, and
+space, `$`, `%`, `*`, `+`, `-`, `.`, `/` and `:` are 36 to 44. Characters are taken two at a time, and each pair becomes
+one number:
+
+$$
+45 \times \text{first} + \text{second}
+$$
+
+which runs from 0 to 2,024 and so fits in 11 bits, since $2^{11} = 2048$. A single character left over at the end takes
+6 bits (7.4.4). In the standard's example, `AC-42`, the first pair is `A` (10) and `C` (12), which gives
+$10 \times 45 + 12 = 462$, stored as `00111001110`.
+
+That's 5.5 bits per character, against a least possible $\log_2 45 \approx 5.49$. But there are no lowercase letters,
+and none of `?`, `=`, `&`, `#` or `_`, so web addresses usually go in byte mode. Writing an address in capitals doesn't
+generally help: only its scheme (`https:`) and domain name are guaranteed not to depend on case, while the path after
+the domain often does, depending on the server, and a scanner passes on the capitals exactly as it reads them. Only
+special cases can use alphanumeric mode, such as `HTTPS://EXAMPLE.COM/` with no path, or a server that ignores case;
+anything with a query string, with its `?`, `=` and `&`, needs byte mode.
+
+### Byte mode
+
+Byte mode stores each byte as it is, in 8 bits (7.4.5). By default, the bytes are read as ISO/IEC 8859-1, also called
+Latin-1: the ASCII characters plus 96 more for Western European languages (7.3.5, Table 6). In byte mode, the character
+count counts bytes rather than characters.
+
+Text with other characters, such as the euro sign or most non-Latin scripts, has to use a different character set,
+usually UTF-8, which takes one to four bytes per character. The standard marks the change with an _Extended Channel
+Interpretation_ (ECI) header before the data: the indicator `0111`, then the number of the character set, which is 26
+for UTF-8 (7.4.2). Some generators leave the header out and rely on the scanner recognising UTF-8.
+
+### Kanji mode
+
+Shift JIS, a character set for Japanese, uses two bytes for each kanji or kana. Kanji mode stores these characters in
+13 bits instead of 16 (7.4.6). It covers the Shift JIS codes from `8140` to `9FFC` and from `E040` to `EBBF` (in
+hexadecimal), which hold all the double-byte characters of the Japanese standard JIS X 0208: kanji, hiragana, katakana
+and some symbols.
+
+To encode a character, subtract `8140` from its code, or `C140` if it is in the second range. Then multiply the first
+byte of the result by `C0` (192) and add the second byte. The second byte of a Shift JIS code is between `40` and `FC`,
+so after subtracting it is below `C0`, and the result is a two-digit number in base 192. The largest code, `EBBF`, gives
+exactly 8,191, the largest 13-bit number. The standard's examples are 点 (`935F`) and 茗 (`E4AA`).
+
+Try each mode below. The examples are the standard's own, apart from byte mode.
+
+<ModeEncoder client:visible />
+
+### Choosing a mode
+
+An encoder normally picks the mode with the smallest character set that covers the text. A code can also switch mode
+partway through the data (7.4.7). Each switch starts a new _segment_, with its own mode indicator and character count,
+so switching only pays off for long enough runs of digits or capitals; the standard's Annex J explains how to choose.
+The widgets here use one mode for the whole text.
+
+> **Other modes.** The standard has a few more mode indicators for special uses: _structured append_ splits a message
+> across up to 16 codes, and _FNC1_ marks data formatted for GS1 barcodes or other industry standards (7.3.8, 7.3.9).
+> This explainer leaves them out.
+
 ## Building the bitstream
+
+Each segment starts with the 4-bit mode indicator, then the _character count indicator_, then the data. Larger versions
+hold more characters, so the count gets longer as the version grows (Table 3):
+
+| Versions | Numeric | Alpha­numeric | Byte | Kanji |
+| -------- | ------: | -----------: | ---: | ----: |
+| 1–9      |      10 |            9 |    8 |     8 |
+| 10–26    |      12 |           11 |   16 |    10 |
+| 27–40    |      14 |           13 |   16 |    12 |
+
+After the last segment, the rest of the code's data bytes are filled in three steps (7.4.9, 7.4.10):
+
+1. A _terminator_ of four 0 bits marks the end of the data. If fewer than four bits are left, it is shortened, or left
+   out if the data fills the code exactly.
+2. More 0 bits, if needed, to reach the end of the current byte.
+3. _Pad bytes_, `11101100` and `00010001` in turn (`EC` and `11` in hexadecimal), until all the data bytes are used.
+
+The standard's own example (Annex I) encodes `01234567` in a version 1-M code. The segment takes 41 bits: 4 for the
+mode, 10 for the count of 8 digits, and 27 for the digits. The terminator brings it to 45 bits, three padding bits to 48,
+or 6 bytes, and 10 pad bytes fill the remaining space, for the 16 data bytes of version 1-M. That's the example below;
+try your own text, level and version.
+
+<BitstreamBuilder client:visible />
+
+## How much fits
+
+Chapter 2 gave each version's capacity in bytes. In characters, it depends on the mode (Table 7). The smallest code,
+version 1-L, holds 41 digits, 25 alphanumeric characters, 17 bytes or 10 kanji; the largest, version 40-L, holds 7,089
+digits, 4,296 alphanumeric characters, 2,953 bytes or 1,817 kanji. The bitstream builder above gives the numbers for any
+version and level.
+
+These data bytes are what the error correction of chapters 4 and 5 protects.

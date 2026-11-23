@@ -61,11 +61,17 @@ is needed: polynomials over bits in chapter 2, bytes (GF(2⁸)) in chapter 4, Re
 
 ## Chapter 3: Encoding the data
 
-- Encoding modes: numeric, alphanumeric, byte, kanji
-  - Interactive encoding example for each mode, with Kanji samples so users don't have to input their own
+- Encoding modes: numeric, alphanumeric, byte, kanji (7.3, Tables 2 and 5)
+  - Numeric and alphanumeric modes treat a group of characters as one number in base 10 or 45: 3 digits in 10 bits, 2 characters in 11, close to the least possible
+  - Byte mode: ISO/IEC 8859-1 by default; other text as UTF-8, marked with an ECI header (ECI 26)
+  - Kanji mode: Shift JIS codes in 13 bits, as a two-digit number in base 192
+  - Interactive encoding example for each mode, with Kanji samples so users don't have to input their own; the standard's own examples by default
+  - Choosing a mode, and mixing modes in segments (7.4.7, Annex J); the widgets use one mode for the whole text
 - Building the bitstream
   - Mode indicator and character count indicator (its length depends on the mode and the version)
   - Terminator, padding to a whole number of bytes, then the pad bytes 0xEC and 0x11, repeated to fill the remaining capacity
+  - Interactive bitstream builder: the data codewords bit by bit, coloured by part, starting from the standard's Annex I example
+- How much fits: capacity in characters for each mode (Table 7)
 
 ## Chapter 4: Arithmetic on bytes
 

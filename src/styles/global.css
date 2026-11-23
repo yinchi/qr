@@ -201,6 +201,18 @@ blockquote > :last-child {
   text-align: start;
 }
 
+/* Phones: slightly smaller text and padding, so ordinary tables fit without scrolling. */
+@media (max-width: 30rem) {
+  .table-wrap table {
+    font-size: 0.9375rem;
+  }
+
+  .table-wrap th,
+  .table-wrap td {
+    padding-inline: 0.4rem;
+  }
+}
+
 .table-wrap tbody tr:nth-child(even) {
   background: color-mix(in srgb, var(--text) 3.5%, var(--bg));
 }
