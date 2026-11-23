@@ -54,6 +54,10 @@ is needed: polynomials over bits in chapter 2, bytes (GF(2⁸)) in chapter 4, Re
   - The version number (6 bits) encoded with the (18, 6) Golay code, stored twice, not masked
   - Reuse the encoder/decoder widget: same polynomial division as the BCH code, with a different generator
   - The 34 valid codewords differ in at least 8 bits, so up to 3 bit errors can be corrected (standard, Annex D); table of all 561 pairs
+- Where the bits go: which module holds each bit of both copies (Figures 25 and 28)
+  - Format information: the first copy wraps around the top-left finder; the second is split between the other two corners, so no corner holds both copies
+  - Version information: the top-right block fills row by row, the bottom-left block is its mirror image and fills column by column
+  - Interactive close-ups of the three corners, with each bit numbered and shown dark for 1; pointing at a bit highlights both of its copies
 
 ## Chapter 3: Encoding the data
 

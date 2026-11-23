@@ -7,6 +7,7 @@ description: Error correction levels, mask patterns, and the BCH and Golay codes
 import CapacityChart from '../../components/qr/CapacityChart.svelte';
 import CodeDistances from '../../components/qr/CodeDistances.astro';
 import CodeExplorer from '../../components/qr/CodeExplorer.svelte';
+import InfoPlacement from '../../components/qr/InfoPlacement.svelte';
 import MaskPatterns from '../../components/qr/MaskPatterns.astro';
 
 Before a scanner can read the data in a QR code, it needs to know two settings: the error correction level and the
@@ -181,3 +182,33 @@ That still means up to 3 errors can be corrected (D.3). With 4, what was read co
 strings, and the scanner couldn't tell which was meant. The version information is stored twice too: the reference
 decoder reads the block beside the top-right finder pattern first, and falls back to the one beside the bottom-left
 finder pattern.
+
+## Where the bits go
+
+[Chapter 1](../parts/) showed which modules hold the format and version information. Within them, every bit has a
+module of its own in each copy. The standard numbers the bits from 0, the last bit of the string, up to 14 for the
+format information and 17 for the version information, and stores a 1 as a dark module (6.1).
+
+The format information's two copies are laid out differently (Figure 25):
+
+- The first copy wraps around the top-left finder pattern. Bits 0 to 7 run down column 8 from the top edge to row 8,
+  stepping over the timing pattern in row 6. Bits 8 to 14 then run left along row 8 to the left edge, stepping over the
+  timing pattern in column 6.
+- The second copy is split in two. Bits 0 to 7 run left along row 8 from the right edge, below the top-right finder
+  pattern. Bits 8 to 14 run down column 8 from just below the dark module to the bottom edge, beside the bottom-left
+  finder pattern.
+
+The two copies never share a corner, so damage to any one corner leaves at least one of them whole.
+
+The version information's two blocks hold their bits in mirror image (Figure 28). In the block left of the top-right
+finder pattern, 6 modules tall and 3 wide, the bits fill row by row: 0, 1 and 2 along the top row, then 3, 4 and 5, down
+to 15, 16 and 17 along the bottom. The block above the bottom-left finder pattern is the same block reflected across the
+diagonal, so its bits fill column by column instead.
+
+None of these modules are touched by the data mask (7.8.2). The format information has its own fixed mask, applied
+before its bits are placed, and the version information has none.
+
+Choose a level, mask and version, then point at a bit, in a corner or in the strings, to see where both of its copies
+go.
+
+<InfoPlacement client:visible />

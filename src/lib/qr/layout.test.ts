@@ -1,15 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import QRCode from 'qrcode';
+import QRCode, { type QRCodeMaskPattern } from 'qrcode';
+import { EC_LEVELS } from './ec';
+import { formatInfoBits } from './format';
 import { versionInfoBits } from './version-info';
 import {
   alignmentCentres,
   countRoles,
   dataModules,
   fixedLayout,
+  formatInfoPositions,
   MAX_VERSION,
   MIN_VERSION,
   symbolSize,
   type Role,
+  versionInfoPositions,
 } from './layout';
 
 const VERSIONS = Array.from({ length: MAX_VERSION - MIN_VERSION + 1 }, (_, i) => i + MIN_VERSION);
@@ -142,5 +146,55 @@ describe('versionInfoBits', () => {
 
   it('encodes version 7 as 000111 110010010100', () => {
     expect(versionInfoBits(7).toString(2).padStart(18, '0')).toBe('000111110010010100');
+  });
+});
+
+describe('formatInfoPositions', () => {
+  it('follows Figure 25 of the standard', () => {
+    const { first, second } = formatInfoPositions(7); // 45 × 45
+    expect([first[0], first[5], first[6], first[7], first[8], first[9], first[14]]).toEqual([
+      [0, 8], [5, 8], [7, 8], [8, 8], [8, 7], [8, 5], [8, 0],
+    ]);
+    expect([second[0], second[7], second[8], second[14]]).toEqual([
+      [8, 44], [8, 37], [38, 8], [44, 8],
+    ]);
+  });
+
+  it('covers exactly the format information modules', () => {
+    for (const version of [1, 7, 40]) {
+      const layout = fixedLayout(version);
+      const { first, second } = formatInfoPositions(version);
+      const placed = new Set([...first, ...second].map(([r, c]) => r * layout.size + c));
+      const reserved = layout.roles.flatMap((role, i) => (role === 'format' ? [i] : []));
+      expect([...placed].sort((a, b) => a - b)).toEqual(reserved);
+    }
+  });
+
+  it.each([1, 7, 40])('puts each bit where the qrcode library does, version %i', (version) => {
+    const { first, second } = formatInfoPositions(version);
+    for (const level of EC_LEVELS) {
+      for (let mask = 0; mask < 8; mask++) {
+        const reference = QRCode.create('1', { version, errorCorrectionLevel: level, maskPattern: mask as QRCodeMaskPattern }).modules;
+        const bits = formatInfoBits(level, mask);
+        for (let i = 0; i < 15; i++) {
+          const bit = (bits >> i) & 1;
+          for (const [row, col] of [first[i], second[i]]) {
+            expect(reference.data[row * reference.size + col], `${level}/${mask} bit ${i} at (${row}, ${col})`).toBe(bit);
+          }
+        }
+      }
+    }
+  });
+});
+
+describe('versionInfoPositions', () => {
+  it('follows Figure 28 of the standard', () => {
+    const { topRight, bottomLeft } = versionInfoPositions(7); // 45 × 45, blocks start at row/column 34
+    expect([topRight[0], topRight[2], topRight[3], topRight[17]]).toEqual([[0, 34], [0, 36], [1, 34], [5, 36]]);
+    expect([bottomLeft[0], bottomLeft[1], bottomLeft[3], bottomLeft[17]]).toEqual([[34, 0], [35, 0], [34, 1], [36, 5]]);
+  });
+
+  it('is empty below version 7', () => {
+    expect(versionInfoPositions(6)).toEqual({ topRight: [], bottomLeft: [] });
   });
 });

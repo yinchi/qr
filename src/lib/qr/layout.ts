@@ -181,33 +181,66 @@ export function fixedLayout(version: number): FixedLayout {
     }
   }
 
-  // Version information (version 7 and up): a 3×6 block left of the top-right finder and a 6×3 block above the
-  // bottom-left finder. Bit i (from the least significant) goes in row ⌊i/3⌋ of the first, and is mirrored in the second.
+  // Version information (version 7 and up), in two blocks.
   let versionInfo: number | null = null;
   if (version >= 7) {
     versionInfo = versionInfoBits(version);
+    const { topRight, bottomLeft } = versionInfoPositions(version);
     for (let i = 0; i < 18; i++) {
       const bit = ((versionInfo >> i) & 1) === 1;
-      const a = Math.floor(i / 3);
-      const b = size - 11 + (i % 3);
-      set(a, b, 'version', bit);
-      set(b, a, 'version', bit);
+      set(...topRight[i], 'version', bit);
+      set(...bottomLeft[i], 'version', bit);
     }
   }
 
-  // Format information: 15 modules around the top-left finder, plus a second copy split between the other two.
-  for (let i = 0; i <= 8; i++) {
-    if (i === 6) continue; // timing patterns
-    set(8, i, 'format', false);
-    set(i, 8, 'format', false);
+  // Format information: reserved here, since its bits depend on the error correction level and mask.
+  const { first, second } = formatInfoPositions(version);
+  for (let i = 0; i < 15; i++) {
+    set(...first[i], 'format', false);
+    set(...second[i], 'format', false);
   }
-  for (let i = 0; i < 8; i++) set(8, size - 1 - i, 'format', false);
-  for (let i = 0; i < 7; i++) set(size - 1 - i, 8, 'format', false);
 
   // The dark module, always dark, just above the second copy of the format information.
   set(size - 8, 8, 'darkModule', true);
 
   return { version, size, roles, dark, alignmentCentres: centres, versionInfo };
+}
+
+type Position = [row: number, col: number];
+
+/**
+ * Where each of the 15 format information bits goes, for both copies, indexed by bit number (0 is the least
+ * significant, the last bit of the string). ISO/IEC 18004, Figure 25.
+ */
+export function formatInfoPositions(version: number): { first: Position[]; second: Position[] } {
+  const size = symbolSize(version);
+  const first: Position[] = [];
+  const second: Position[] = [];
+  for (let i = 0; i < 15; i++) {
+    // Around the top-left finder: down column 8 (bits 0–7, stepping over the timing pattern in row 6), then leftwards
+    // along row 8 (bits 8–14, stepping over the timing pattern in column 6).
+    first.push(i <= 5 ? [i, 8] : i === 6 ? [7, 8] : i === 7 ? [8, 8] : i === 8 ? [8, 7] : [8, 14 - i]);
+    // Leftwards along row 8 from the right edge (bits 0–7), then down column 8 to the bottom edge (bits 8–14).
+    second.push(i < 8 ? [8, size - 1 - i] : [size - 15 + i, 8]);
+  }
+  return { first, second };
+}
+
+/**
+ * Where each of the 18 version information bits goes, in both blocks, indexed by bit number (0 is the least
+ * significant). Figure 28: the top-right block fills row by row, three bits to a row; the bottom-left block is its
+ * mirror image across the diagonal, filling column by column. Empty below version 7.
+ */
+export function versionInfoPositions(version: number): { topRight: Position[]; bottomLeft: Position[] } {
+  if (version < 7) return { topRight: [], bottomLeft: [] };
+  const size = symbolSize(version);
+  const topRight: Position[] = [];
+  const bottomLeft: Position[] = [];
+  for (let i = 0; i < 18; i++) {
+    topRight.push([Math.floor(i / 3), size - 11 + (i % 3)]);
+    bottomLeft.push([size - 11 + (i % 3), Math.floor(i / 3)]);
+  }
+  return { topRight, bottomLeft };
 }
 
 /** How many modules of each role a layout has. */
