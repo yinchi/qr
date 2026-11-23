@@ -150,6 +150,23 @@ h3:hover .heading-link,
   white-space: nowrap;
 }
 
+/* Asides, written as Markdown blockquotes. */
+blockquote {
+  margin: 1.5rem 0;
+  padding: 0.75rem 1rem;
+  border-left: 3px solid var(--rule);
+  border-radius: 0 6px 6px 0;
+  background: color-mix(in srgb, var(--text) 4%, var(--bg));
+}
+
+blockquote > :first-child {
+  margin-top: 0;
+}
+
+blockquote > :last-child {
+  margin-bottom: 0;
+}
+
 /* Wide display formulas scroll sideways inside their own box instead of widening the page. */
 .katex-display {
   overflow-x: auto;

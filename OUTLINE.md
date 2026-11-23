@@ -34,21 +34,26 @@ is needed: polynomials over bits in chapter 2, bytes (GF(2⁸)) in chapter 4, Re
 
 ## Chapter 2: Format and version information
 
-- Error correction levels: L, M, Q, H
+- Error correction levels: L, M, Q, H, restoring about 7, 15, 25 and 30 % of the codewords (Table 8), with their format bits (Table 12)
   - How much data can be stored given the code size (version) and error correction level?
   - Conversely, what is the smallest code size (version) needed to store a given amount of data with a specific error correction level?
+  - Capacity is given in bytes (data codewords, from Table 9); chapter 3 converts it to characters for each mode (Table 7)
+  - Interactive capacity chart: data bytes against version for each level, a version picker with a table of its numbers, and the smallest version for a given number of bytes
+  - Repairing a byte takes two error correction bytes; the smallest codes keep a few back for detection only (misdecode protection, 7.5.1)
 - Mask pattern: eight valid patterns, three bits in the format strip
+  - Table of the eight patterns on a version 1 code with their conditions (Table 10, Figure 21); how they are scored is in chapter 6
 - How the format information is encoded
   - Polynomials whose coefficients are bits: adding is XOR, so long division is just shifting and XORing
   - The (15, 5) BCH code: append the remainder of dividing by the generator polynomial, then XOR with the mask 101010000010010 so that no codeword is all zeros
-  - Decoding as in the standard: pick the closest of the 32 valid codewords. Any two differ in at least 7 bits, so up to 3 bit errors can be corrected; show this by comparing every pair of codewords rather than with theory
+  - Decoding as in the standard: pick the closest of the 32 valid codewords. Any two differ in at least 7 bits, so up to 3 bit errors can be corrected; show this by comparing every pair of codewords rather than with theory (a table of all 496 pairs)
   - BCH(15, 5) interactive encoder/decoder: encode, introduce errors by flipping bits, and verify if code is still recoverable
+    - The division shown step by step; flipping 4 or more bits can make the decoder pick the wrong codeword
   - The format information is stored twice, so a decoder can fall back on the second copy
   - Optional aside: why this generator gives a distance of 7 comes from arithmetic in GF(16), beyond the scope of the explainer
 - Version information (versions 7 and up)
   - The version number (6 bits) encoded with the (18, 6) Golay code, stored twice, not masked
   - Reuse the encoder/decoder widget: same polynomial division as the BCH code, with a different generator
-  - The 34 valid codewords differ in at least 8 bits, so up to 3 bit errors can be corrected (standard, Annex D)
+  - The 34 valid codewords differ in at least 8 bits, so up to 3 bit errors can be corrected (standard, Annex D); table of all 561 pairs
 
 ## Chapter 3: Encoding the data
 

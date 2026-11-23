@@ -1,0 +1,47 @@
+---
+// How far apart the valid format or version information codewords are: every pair compared, at build time.
+import { pairwiseDistances } from '../../lib/qr/cyclic';
+import { FORMAT_CODEWORDS } from '../../lib/qr/format';
+import { VERSION_CODEWORDS } from '../../lib/qr/version-info';
+
+interface Props {
+  kind: 'format' | 'version';
+}
+
+const { kind } = Astro.props;
+const codewords = (kind === 'format' ? FORMAT_CODEWORDS : VERSION_CODEWORDS).map((c) => c.bits);
+const distances = [...pairwiseDistances(codewords)];
+const pairs = distances.reduce((n, [, count]) => n + count, 0);
+---
+
+<div class="table-wrap">
+  <table>
+    <caption>
+      All {pairs.toLocaleString('en')} pairs of the {codewords.length} valid {kind} information codewords
+    </caption>
+    <thead>
+      <tr>
+        <th>Bits that differ</th>
+        <th style="text-align: right">Pairs</th>
+      </tr>
+    </thead>
+    <tbody>
+      {
+        distances.map(([distance, count]) => (
+          <tr>
+            <td>{distance}</td>
+            <td style="text-align: right">{count}</td>
+          </tr>
+        ))
+      }
+    </tbody>
+  </table>
+</div>
+
+<style>
+  caption {
+    padding: 0.5rem 0.875rem;
+    text-align: start;
+    font-weight: 600;
+  }
+</style>

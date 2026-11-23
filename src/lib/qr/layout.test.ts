@@ -1,7 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import QRCode from 'qrcode';
-import { versionInfoBits } from './cyclic';
-import { alignmentCentres, countRoles, fixedLayout, MAX_VERSION, MIN_VERSION, symbolSize, type Role } from './layout';
+import { versionInfoBits } from './version-info';
+import {
+  alignmentCentres,
+  countRoles,
+  dataModules,
+  fixedLayout,
+  MAX_VERSION,
+  MIN_VERSION,
+  symbolSize,
+  type Role,
+} from './layout';
 
 const VERSIONS = Array.from({ length: MAX_VERSION - MIN_VERSION + 1 }, (_, i) => i + MIN_VERSION);
 
@@ -73,6 +82,7 @@ describe('fixedLayout', () => {
   it.each(VERSIONS)('version %i has room for exactly its codewords and remainder bits', (version) => {
     const { data } = countRoles(fixedLayout(version));
     expect(data).toBe(8 * TOTAL_CODEWORDS[version - 1] + remainderBits(version));
+    expect(dataModules(version)).toBe(data);
   });
 
   it('has the expected size and fixed-module counts', () => {

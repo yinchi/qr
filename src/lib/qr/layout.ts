@@ -1,4 +1,4 @@
-import { versionInfoBits } from './cyclic';
+import { versionInfoBits } from './version-info';
 
 export const MIN_VERSION = 1;
 export const MAX_VERSION = 40;
@@ -71,6 +71,23 @@ function checkVersion(version: number): void {
   if (!Number.isInteger(version) || version < MIN_VERSION || version > MAX_VERSION) {
     throw new RangeError(`QR version must be an integer from ${MIN_VERSION} to ${MAX_VERSION}, got ${version}`);
   }
+}
+
+/**
+ * Modules in the data area, without building the grid: the whole symbol minus the finder patterns and separators,
+ * timing patterns, alignment patterns (less the timing modules they cover), format information, dark module and
+ * version information. Equals Table 1's "data modules except (C)".
+ */
+export function dataModules(version: number): number {
+  checkVersion(version);
+  const size = symbolSize(version);
+  const n = alignmentCoordinates(version).length;
+  const alignment = n === 0 ? 0 : n * n - 3;
+  // Alignment patterns on row 6 or column 6 each cover 5 timing modules, which shouldn't be subtracted twice.
+  const onTiming = n === 0 ? 0 : 2 * (n - 2);
+  const timing = 2 * (size - 16) - 5 * onTiming;
+  const versionInfo = version >= 7 ? 36 : 0;
+  return size * size - 3 * 64 - timing - 25 * alignment - 31 - versionInfo;
 }
 
 export function alignmentCoordinates(version: number): readonly number[] {

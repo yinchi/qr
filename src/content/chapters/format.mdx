@@ -4,10 +4,180 @@ title: Format and version information
 description: Error correction levels, mask patterns, and the BCH and Golay codes that protect them.
 ---
 
+import CapacityChart from '../../components/qr/CapacityChart.svelte';
+import CodeDistances from '../../components/qr/CodeDistances.astro';
+import CodeExplorer from '../../components/qr/CodeExplorer.svelte';
+import MaskPatterns from '../../components/qr/MaskPatterns.astro';
+
+Before a scanner can read the data in a QR code, it needs to know two settings: the error correction level and the
+mask pattern. They are stored in the [format information](../parts/#format-information), the two 15-bit strips beside
+the finder patterns. Codes of version 7 and up also store their version number, in the
+[version information](../parts/#version-information) blocks.
+
+This chapter explains what the two settings mean, and then how those few bits are protected against damage. That
+protection uses the idea behind all of a QR code's error correction: add extra bits, chosen so that the valid
+combinations are all very different from each other.
+
 ## Error correction levels
+
+Every QR code stores error correction bytes alongside its data, so that it can still be read when part of it is dirty,
+damaged or covered. Whoever makes the code chooses how much, from four levels:
+
+| Level | Can restore about | Bits in the format information |
+| ----- | ----------------: | ------------------------------ |
+| L     |               7 % | `01`                           |
+| M     |              15 % | `00`                           |
+| Q     |              25 % | `11`                           |
+| H     |              30 % | `10`                           |
+
+The percentages are shares of the code's bytes (ISO/IEC 18004, Table 8). The bits are how the level is written in the
+format information (Table 12); note that they aren't in alphabetical order.
+
+The size of a code is fixed by its version, so more error correction means less room for data. Chapter 1 showed that
+the data area of each version holds a fixed number of 8-bit _codewords_, or bytes: 26 for version 1, 196 for version
+7. At each level, a set number of those bytes are error correction, and the rest carry the data. Repairing a damaged
+byte takes two error correction bytes, one to find where it is and one to work out its value, so a code can correct
+about half as many bytes as it has error correction bytes. Chapter 5 shows how.
+
+The chart below shows how many bytes of data each version holds at each level. Pick a version to see its numbers, or
+enter an amount of data to find the smallest version that holds it: the rings mark that version for each level.
+
+<CapacityChart client:visible />
+
+A byte isn't always one character. Digits and capital letters can be packed more tightly, so a code holds more of them;
+[chapter 3](../encoding/) shows how, and how many characters fit. Larger codes also split their bytes into several
+blocks, each with its own error correction; chapter 5 explains why.
+
+In the smallest codes, a few error correction bytes are kept back to detect errors without correcting them (7.5.1). If
+a small code is too badly damaged, a scanner then rejects it rather than reading the wrong data. That's why version
+1-L, with 7 error correction bytes, can only correct 2.
 
 ## Mask patterns
 
+Before the data is placed in the code, it is combined with one of eight _mask patterns_: every module where the
+pattern is dark is flipped, from light to dark or dark to light. This breaks up large areas of one colour, and
+accidental copies of the finder pattern's dark-light-dark-dark-dark-light-dark sequence, either of which could confuse a
+scanner (7.8.1). Whoever makes the code tries all eight and keeps the one that scores best; [chapter 6](../placement/)
+explains the scoring.
+
+To read the data, a scanner has to undo the mask, so the format information records which one was used, as a 3-bit
+reference. Here are the eight, with the conditions from the standard (Table 10). Rows $i$ and columns $j$ are numbered
+from 0 at the top left, $\bmod$ means the remainder after dividing, and $\lfloor x \rfloor$ means $x$ rounded down.
+
+<MaskPatterns />
+
 ## Encoding the format information
 
+The format information carries five bits: two for the error correction level, then three for the mask pattern. Five
+bits are all a scanner needs, but if even one of them is misread, it will undo the wrong mask or expect the wrong amount
+of error correction, and read nonsense. So the standard adds 10 error correction bits, for 15 in all.
+
+There are $2^{15} = 32\,768$ possible 15-bit strings, but only 32 of them are valid, one for each level and mask. The
+error correction bits are chosen so that any two valid strings differ in at least 7 bits. A few misread bits can't turn
+one valid string into another, so the scanner can work out which one was meant.
+
+### Bits as polynomials
+
+The error correction bits are calculated by dividing polynomials. A string of bits can be read as a polynomial, with
+each bit the coefficient of a power of $x$, and the last bit the coefficient of $x^0 = 1$:
+
+$$
+\begin{aligned}
+\texttt{00101} &= 0x^4 + 0x^3 + 1x^2 + 0x + 1 \\
+&= x^2 + 1
+\end{aligned}
+$$
+
+The coefficients are bits, so their arithmetic wraps around at 2: $1 + 1 = 0$. Adding two polynomials then adds each
+pair of bits on its own, with nothing carried, which is exactly the XOR (⊕) of the two bit strings. Subtracting is the
+same as adding, since $-1$ and $1$ are the same bit.
+
+$$
+\begin{gathered}
+(x^4 + x^2) + (x^2 + 1) = x^4 + 1 \\
+\texttt{10100} \oplus \texttt{00101} = \texttt{10001}
+\end{gathered}
+$$
+
+Long division works as it does with numbers, but is simpler. Each step lines the divisor up under the leading 1 of what
+is left, and subtracts it, which here is XOR. When fewer bits are left than the divisor has, they are the remainder.
+
+### The (15, 5) BCH code
+
+To encode the five data bits, the standard appends 10 zeros, which multiplies the polynomial by $x^{10}$. It divides the
+result by the _generator polynomial_
+
+$$
+G(x) = x^{10} + x^8 + x^5 + x^4 + x^2 + x + 1
+$$
+
+(`10100110111` in bits) and puts the 10-bit remainder after the data bits as the error correction bits (Annex C). Taking away the remainder
+leaves something that divides exactly by $G(x)$, and taking away is the same as adding, so every valid string divides
+exactly by $G(x)$, before the mask described below is applied. The 32 valid strings are exactly the multiples of $G(x)$
+that fit in 15 bits. This is called a
+(15, 5) BCH code: 15 bits, 5 of them data.
+
+### The format mask
+
+Last, the 15 bits are XORed with the fixed pattern `101010000010010`. Without it, level M (`00`) with mask `000` would
+give all-zero data and an all-zero remainder, and the standard requires that the format information is never all zeros
+(C.2). XORing the same pattern into every valid string doesn't change how many bits any two of them differ in.
+
+Try it below: choose a level and mask to follow the division step by step, then flip some bits to see how a scanner
+decodes them. The default, level M with mask `101`, is the standard's own example, which needs only one division step.
+
+<CodeExplorer client:visible kind="format" />
+
+### Decoding
+
+A scanner reads 15 bits, some of which may be wrong. It compares them with each of the 32 valid strings, and takes the
+closest, the one that differs in the fewest bits, as long as it differs in no more than 3 (C.3).
+
+Why 3? Every pair of valid strings differs in at least 7 bits, as this table of every pair shows:
+
+<CodeDistances kind="format" />
+
+If at most 3 bits were misread, the string that was sent is at most 3 bits away from what was read, and every other
+valid string is at least $7 - 3 = 4$ bits away. The closest is then always the right one. With 4 or more errors, what
+was read may land closer to a different valid string, and the scanner picks the wrong one. Flip 4 bits in the widget to
+see this happen.
+
+The standard states the distance of 7 without showing why (C.3); comparing every pair, as the table does, confirms it.
+
+> **Why this generator?** BCH codes are designed so their codewords are far apart by choosing the generator from
+> arithmetic in a _finite field_, here one with 16 elements. That theory goes beyond this explainer, and isn't needed
+> to use the code: the table above checks the distances directly.
+
+### Two copies
+
+The format information is stored twice, as chapter 1 showed, because without it nothing else can be read (7.9.1). The
+standard's reference decoder reads the copy around the top-left finder pattern first. If that copy has more than 3
+errors, it tries the other one, split between the other two finder patterns (section 12).
+
 ## Version information
+
+From version 7 up, the version number is stored too, in 18 bits: the 6-bit version number, then 12 error correction
+bits. They are calculated the same way, by appending 12 zeros and dividing, with a different generator (Annex D):
+
+$$
+\begin{aligned}
+G(x) = x^{12} &+ x^{11} + x^{10} + x^9 \\
+&+ x^8 + x^5 + x^2 + 1
+\end{aligned}
+$$
+
+which is `1111100100101` in bits. The standard calls this an (18, 6) Golay code. There is no mask this time: the version is at least 7, so the data bits
+are never all zero, and neither is the version information (7.10). For version 7, the result is the
+`000111 110010010100` from chapter 1.
+
+<CodeExplorer client:visible kind="version" />
+
+Decoding works the same way, comparing what was read with the 34 valid strings, for versions 7 to 40. Any two of them
+differ in at least 8 bits:
+
+<CodeDistances kind="version" />
+
+That still means up to 3 errors can be corrected (D.3). With 4, what was read could be exactly as far from two valid
+strings, and the scanner couldn't tell which was meant. The version information is stored twice too: the reference
+decoder reads the block beside the top-right finder pattern first, and falls back to the one beside the bottom-left
+finder pattern.
