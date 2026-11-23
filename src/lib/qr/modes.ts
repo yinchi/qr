@@ -86,11 +86,11 @@ export function byteLength(text: string): number {
 let shiftJisTable: Map<string, number> | null = null;
 
 /**
- * The Shift JIS code of a character, if kanji mode can encode it: codes 8140–9FFC and E040–EBBF (7.4.6), which hold
- * the double-byte characters of JIS X 0208 (kanji, kana and symbols). The table is built once, from the browser's own
+ * The characters kanji mode can encode, with their Shift JIS codes: codes 8140–9FFC and E040–EBBF (7.4.6), which hold
+ * the 6,879 characters of JIS X 0208 (kanji, kana and symbols). The table is built once, from the browser's own
  * Shift JIS decoder, rather than shipped with the page.
  */
-export function shiftJis(char: string): number | null {
+export function kanjiCharacters(): ReadonlyMap<string, number> {
   if (!shiftJisTable) {
     shiftJisTable = new Map();
     const decoder = new TextDecoder('shift_jis');
@@ -99,6 +99,9 @@ export function shiftJis(char: string): number | null {
       [0xe0, 0xeb],
     ]) {
       for (let lead = from; lead <= to; lead++) {
+        // Row 13 (lead byte 87) holds NEC's additions in Microsoft's version of Shift JIS, such as ① and ㍻. Browsers
+        // decode them, but they aren't part of JIS X 0208, so a strict scanner may not.
+        if (lead === 0x87) continue;
         for (let trail = 0x40; trail <= 0xfc; trail++) {
           if (trail === 0x7f) continue;
           const code = (lead << 8) | trail;
@@ -106,14 +109,19 @@ export function shiftJis(char: string): number | null {
           if (code > 0xebbf) continue;
           const decoded = decoder.decode(new Uint8Array([lead, trail]));
           // Keep the first code for each character: later duplicates are vendor extensions.
-          if (decoded.length === 1 && decoded !== '�' && !shiftJisTable.has(decoded)) {
+          if (decoded.length === 1 && decoded !== '\uFFFD' && !shiftJisTable.has(decoded)) {
             shiftJisTable.set(decoded, code);
           }
         }
       }
     }
   }
-  return shiftJisTable.get(char) ?? null;
+  return shiftJisTable;
+}
+
+/** The Shift JIS code of a character, if kanji mode can encode it. */
+export function shiftJis(char: string): number | null {
+  return kanjiCharacters().get(char) ?? null;
 }
 
 /** Kanji mode (7.4.6): subtract 8140 or C140 from the Shift JIS code, then (high byte × C0) + low byte, in 13 bits. */

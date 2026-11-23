@@ -81,6 +81,24 @@ byte of the result by `C0` (192) and add the second byte. The second byte of a S
 so after subtracting it is below `C0`, and the result is a two-digit number in base 192. The largest code, `EBBF`, gives
 exactly 8,191, the largest 13-bit number. The standard's examples are 点 (`935F`) and 茗 (`E4AA`).
 
+> **Chinese characters.** Kanji mode stores Shift JIS codes, so it can encode any character in JIS X 0208, whatever
+> the language. Many characters are shared: 中, 人 and 大 have one code each in Chinese and Japanese, even where
+> Chinese and Japanese fonts draw them slightly differently. But Japan and China simplified many characters
+> separately in the last century, and the different forms are different characters with their own codes:
+>
+> | Traditional | Japanese | Simplified Chinese |
+> | ----------- | -------- | ------------------ |
+> | <span class="han" lang="zh-Hant">國</span> ✓ | <span class="han" lang="ja">国</span> ✓ | <span class="han" lang="zh-Hans">国</span> ✓ |
+> | <span class="han" lang="zh-Hant">發</span> ✓ | <span class="han" lang="ja">発</span> ✓ | <span class="han" lang="zh-Hans">发</span> ✗ |
+> | <span class="han" lang="zh-Hant">說</span> ✗ | <span class="han" lang="ja">説</span> ✓ | <span class="han" lang="zh-Hans">说</span> ✗ |
+>
+> Some differences are tiny: 說 and 説 differ only in the two short strokes at the top right, which splay outward (八) in
+> 說 and point inward (丷) in 説. Small as that is, they are separate characters, and only 説 is in JIS X 0208.
+>
+> JIS X 0208 includes many traditional forms, since Japanese still uses some of them, especially in names, but not all
+> of them. It has very few of the forms simplified only in China, such as 们 and 这, so simplified Chinese text almost
+> always needs byte mode, as UTF-8 at 24 bits per character instead of 13.
+
 Try each mode below. The examples are the standard's own, apart from byte mode.
 
 <ModeEncoder client:visible />

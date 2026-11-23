@@ -8,6 +8,7 @@ import {
   encodeBytes,
   encodeKanji,
   encodeNumeric,
+  kanjiCharacters,
   maxCharacters,
   MODES,
   segmentParts,
@@ -66,6 +67,18 @@ describe('kanji mode', () => {
   it('covers kana but not ASCII', () => {
     expect(shiftJis('あ')).toBe(0x82a0);
     expect(shiftJis('A')).toBeNull();
+  });
+
+  it('holds exactly the 6,879 characters of JIS X 0208, without vendor additions such as ①', () => {
+    expect(kanjiCharacters().size).toBe(6879);
+    expect(shiftJis('①')).toBeNull();
+    expect(shiftJis('㍻')).toBeNull();
+  });
+
+  it('includes some traditional Chinese forms but few simplified ones', () => {
+    // 國, 學 and 發 are in JIS X 0208 alongside the Japanese 国, 学 and 発; 說 is not, only the Japanese 説.
+    expect(['國', '學', '發', '龍', '竜'].map(shiftJis)).toEqual([0x9aa0, 0x9b7b, 0xe1a2, 0x97b4, 0x97b3]);
+    expect(['說', '发', '们', '这'].map(shiftJis)).toEqual([null, null, null, null]);
   });
 });
 

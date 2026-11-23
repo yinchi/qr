@@ -100,7 +100,7 @@
       {NAMES[mode]} mode can't encode {invalid.map((c) => `“${show(c)}”`).join(', ')}.
       {#if mode === 'numeric'}It only has the digits 0–9.{/if}
       {#if mode === 'alphanumeric'}It only has 0–9, capital A–Z, space and <code>$ % * + - . / :</code>{/if}
-      {#if mode === 'kanji'}It only has the double-byte characters of Shift JIS: kanji, kana and some symbols.{/if}
+      {#if mode === 'kanji'}It only has the Japanese characters of JIS X 0208: kanji, kana and some symbols.{/if}
     </p>
   {:else if chars === 0}
     <p class="problem">Type some text to encode.</p>

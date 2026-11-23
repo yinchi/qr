@@ -167,6 +167,13 @@ blockquote > :last-child {
   margin-bottom: 0;
 }
 
+/* Chinese and Japanese characters shown large, so small differences between forms are visible. */
+.han {
+  font-size: 3em;
+  line-height: 1.15;
+  vertical-align: middle;
+}
+
 /* Wide display formulas scroll sideways inside their own box instead of widening the page. */
 .katex-display {
   overflow-x: auto;
