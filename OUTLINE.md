@@ -6,6 +6,10 @@ Six pages: five chapters, read in order, and a standalone full demo.
 
 - Previous/next links between chapters
 - Each chapter links to the earlier chapters it builds on
+- Header with a chapter menu and a light/dark/system theme toggle
+- "On this page" contents: a sticky sidebar on wide screens, a collapsible box on narrow ones
+- A link on each section heading, for sharing
+- A 404 page listing the chapters
 
 ## Chapter 1: Parts of a QR code
 

@@ -1,0 +1,118 @@
+---
+import { getChapters } from '../lib/chapters';
+import { url } from '../lib/url';
+
+interface Props {
+  /** Id of the current page, marked in the list. */
+  current?: string;
+}
+
+const { current } = Astro.props;
+const items = [
+  ...(await getChapters()).map((c) => ({ id: c.id, number: String(c.data.order), title: c.data.title })),
+  { id: 'demo', number: '', title: 'Full demo' },
+];
+---
+
+<details class="chapter-menu">
+  <summary>Chapters</summary>
+  <ul>
+    {
+      items.map((item) => (
+        <li>
+          <a href={url(item.id)} aria-current={item.id === current ? 'page' : undefined}>
+            <span class="number">{item.number}</span>
+            <span>{item.title}</span>
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+</details>
+
+<script>
+  // Close the menu on a click outside it, or on Escape.
+  for (const menu of document.querySelectorAll<HTMLDetailsElement>('details.chapter-menu')) {
+    document.addEventListener('click', (event) => {
+      if (menu.open && !menu.contains(event.target as Node)) menu.open = false;
+    });
+    menu.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && menu.open) {
+        menu.open = false;
+        menu.querySelector('summary')?.focus();
+      }
+    });
+  }
+</script>
+
+<style>
+  .chapter-menu {
+    position: relative;
+  }
+
+  summary {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    height: 2.25rem;
+    padding: 0 0.75rem;
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    font-size: 0.9375rem;
+    list-style: none;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  summary::-webkit-details-marker {
+    display: none;
+  }
+
+  summary::after {
+    content: '';
+    width: 0.4em;
+    height: 0.4em;
+    border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    transform: translateY(-0.15em) rotate(45deg);
+  }
+
+  /* Anchored to the right edge, which is the page's right gutter, so it never runs off a phone screen. */
+  ul {
+    position: absolute;
+    top: calc(100% + 0.375rem);
+    right: 0;
+    z-index: 20;
+    width: min(20rem, calc(100vw - 2 * var(--gutter)));
+    margin: 0;
+    padding: 0.375rem;
+    list-style: none;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgb(0 0 0 / 0.15);
+  }
+
+  a {
+    display: grid;
+    grid-template-columns: 1.5rem 1fr;
+    padding: 0.375rem 0.5rem;
+    border-radius: 4px;
+    color: var(--text);
+    text-decoration: none;
+  }
+
+  a:hover {
+    background: color-mix(in srgb, var(--text) 7%, transparent);
+  }
+
+  a[aria-current='page'] {
+    background: color-mix(in srgb, var(--link) 14%, transparent);
+    font-weight: 600;
+  }
+
+  .number {
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+  }
+</style>

@@ -1,0 +1,135 @@
+---
+import type { MarkdownHeading } from 'astro';
+
+interface Props {
+  headings: MarkdownHeading[];
+  /** A sticky sidebar on wide screens, or a collapsible box at the top of the page on narrow ones. */
+  variant: 'sidebar' | 'inline';
+}
+
+const { headings, variant } = Astro.props;
+const items = headings.filter((heading) => heading.depth === 2 || heading.depth === 3);
+---
+
+{
+  variant === 'sidebar' ? (
+    <nav class="toc toc-sidebar" aria-label="On this page">
+      <p class="toc-title">On this page</p>
+      <ul>
+        {items.map((heading) => (
+          <li class={`depth-${heading.depth}`}>
+            <a href={`#${heading.slug}`}>{heading.text}</a>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  ) : (
+    <details class="toc toc-inline">
+      <summary>On this page</summary>
+      <nav aria-label="On this page">
+        <ul>
+          {items.map((heading) => (
+            <li class={`depth-${heading.depth}`}>
+              <a href={`#${heading.slug}`}>{heading.text}</a>
+            </li>
+          ))}
+        </ul>
+      </nav>
+    </details>
+  )
+}
+
+<script>
+  // Mark the section being read in the sidebar: the last heading that has scrolled past the top of the window.
+  const links = [...document.querySelectorAll<HTMLAnchorElement>('.toc-sidebar a')];
+  const targets = links.map((link) => document.getElementById(decodeURIComponent(link.hash.slice(1))));
+  let frame = 0;
+  function update() {
+    frame = 0;
+    let active = -1;
+    targets.forEach((target, i) => {
+      if (target && target.getBoundingClientRect().top < 120) active = i;
+    });
+    // Short sections at the end may never reach the top of the window, so mark the last one at the bottom of the page.
+    if (innerHeight + scrollY >= document.documentElement.scrollHeight - 2) active = links.length - 1;
+    links.forEach((link, i) => {
+      if (i === active) link.setAttribute('aria-current', 'true');
+      else link.removeAttribute('aria-current');
+    });
+  }
+  if (links.length) {
+    addEventListener('scroll', () => (frame ||= requestAnimationFrame(update)), { passive: true });
+    update();
+  }
+
+  // On narrow screens, close the collapsible contents after picking a section.
+  for (const details of document.querySelectorAll<HTMLDetailsElement>('.toc-inline')) {
+    details.addEventListener('click', (event) => {
+      if ((event.target as Element).closest('a')) details.open = false;
+    });
+  }
+</script>
+
+<style>
+  ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  a {
+    display: block;
+    padding: 0.25rem 0 0.25rem 0.75rem;
+    border-left: 2px solid var(--rule);
+    color: var(--muted);
+    font-size: 0.9375rem;
+    line-height: 1.4;
+    text-decoration: none;
+  }
+
+  a:hover {
+    color: var(--text);
+  }
+
+  a[aria-current='true'] {
+    border-left-color: var(--link);
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  .depth-3 a {
+    padding-left: 1.5rem;
+  }
+
+  .toc-sidebar {
+    position: sticky;
+    top: 0;
+    max-height: 100vh;
+    overflow-y: auto;
+    padding-block: 2rem;
+  }
+
+  .toc-title {
+    margin: 0 0 0.5rem;
+    color: var(--muted);
+    font-size: 0.8125rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .toc-inline {
+    margin: 1rem 0 2rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+  }
+
+  .toc-inline summary {
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .toc-inline ul {
+    margin-top: 0.5rem;
+  }
+</style>

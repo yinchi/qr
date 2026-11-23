@@ -30,3 +30,30 @@ const { prev, next } = Astro.props;
     )
   }
 </nav>
+
+<style>
+  .chapter-nav {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--rule);
+  }
+
+  a {
+    display: flex;
+    flex-direction: column;
+    text-decoration: none;
+  }
+
+  a[rel='next'] {
+    margin-left: auto;
+    text-align: right;
+  }
+
+  .direction {
+    color: var(--muted);
+    font-size: 0.875rem;
+  }
+</style>

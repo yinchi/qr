@@ -1,0 +1,29 @@
+---
+// A section heading with a link to itself, used in place of the plain h2/h3 that MDX would render. The link is
+// added here rather than by a rehype plugin so it doesn't end up in the heading text used by the contents list.
+
+interface Props {
+  level: 2 | 3;
+  id?: string;
+}
+
+const { level, id, ...rest } = Astro.props;
+const Tag = level === 2 ? 'h2' : 'h3';
+---
+
+<Tag id={id} {...rest}>
+  <slot />
+  {
+    id && (
+      <a class="heading-link" href={`#${id}`}>
+        <svg class="heading-link-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <g transform="rotate(-45 12 12)" fill="none" stroke="currentColor" stroke-width="2.25">
+            <rect x="1.5" y="8.25" width="12" height="7.5" rx="3.75"></rect>
+            <rect x="10.5" y="8.25" width="12" height="7.5" rx="3.75"></rect>
+          </g>
+        </svg>
+        <span class="visually-hidden">Link to this section</span>
+      </a>
+    )
+  }
+</Tag>

@@ -1,0 +1,29 @@
+---
+import { getChapters } from '../lib/chapters';
+import { url } from '../lib/url';
+
+const chapters = await getChapters();
+---
+
+<ol class="contents">
+  {
+    chapters.map((chapter) => (
+      <li>
+        <a href={url(chapter.id)}>{chapter.data.title}</a>
+        <p>{chapter.data.description}</p>
+      </li>
+    ))
+  }
+</ol>
+<p><a href={url('demo')}>Full interactive demo</a>: make a QR code, damage it, and see whether it can still be read.</p>
+
+<style>
+  li {
+    margin-bottom: 1rem;
+  }
+
+  li p {
+    margin: 0.25rem 0 0;
+    color: var(--muted);
+  }
+</style>

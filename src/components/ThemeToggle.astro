@@ -1,0 +1,85 @@
+---
+// Cycles the colour theme: match the system → light → dark. The choice is applied before the page is drawn by
+// the inline script in Base.astro, which reads the same localStorage key.
+---
+
+<button type="button" class="theme-toggle" aria-label="Colour theme" title="Colour theme">
+  <svg class="icon icon-system" viewBox="0 0 24 24" aria-hidden="true">
+    <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"></circle>
+    <path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"></path>
+  </svg>
+  <svg class="icon icon-light" viewBox="0 0 24 24" aria-hidden="true">
+    <circle cx="12" cy="12" r="4" fill="currentColor"></circle>
+    <path
+      d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"></path>
+  </svg>
+  <svg class="icon icon-dark" viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" fill="currentColor"></path>
+  </svg>
+</button>
+
+<script>
+  type Theme = 'system' | 'light' | 'dark';
+  const NEXT: Record<Theme, Theme> = { system: 'light', light: 'dark', dark: 'system' };
+  const NAME: Record<Theme, string> = { system: 'match system', light: 'light', dark: 'dark' };
+  const root = document.documentElement;
+
+  const current = (): Theme => {
+    const theme = root.dataset.theme;
+    return theme === 'light' || theme === 'dark' ? theme : 'system';
+  };
+
+  function describe(button: HTMLButtonElement) {
+    const theme = current();
+    const text = `Colour theme: ${NAME[theme]}. Switch to ${NAME[NEXT[theme]]}.`;
+    button.setAttribute('aria-label', text);
+    button.title = text;
+  }
+
+  for (const button of document.querySelectorAll<HTMLButtonElement>('.theme-toggle')) {
+    describe(button);
+    button.addEventListener('click', () => {
+      const next = NEXT[current()];
+      if (next === 'system') delete root.dataset.theme;
+      else root.dataset.theme = next;
+      try {
+        if (next === 'system') localStorage.removeItem('theme');
+        else localStorage.setItem('theme', next);
+      } catch {
+        // Storage can be unavailable (private windows, blocked site data); the choice then lasts for this page only.
+      }
+      describe(button);
+    });
+  }
+</script>
+
+<style>
+  .theme-toggle {
+    display: grid;
+    place-items: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    padding: 0;
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    background: none;
+    color: var(--text);
+    cursor: pointer;
+  }
+
+  .icon {
+    display: none;
+    width: 1.125rem;
+    height: 1.125rem;
+  }
+
+  /* Driven by the attribute the inline script sets before first paint, so the icon is right from the start. */
+  :global(:root:not([data-theme])) .icon-system,
+  :global(:root[data-theme='light']) .icon-light,
+  :global(:root[data-theme='dark']) .icon-dark {
+    display: block;
+  }
+</style>

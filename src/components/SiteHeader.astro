@@ -1,0 +1,49 @@
+---
+import ChapterMenu from './ChapterMenu.astro';
+import ThemeToggle from './ThemeToggle.astro';
+import { url } from '../lib/url';
+
+interface Props {
+  title: string;
+  /** Id of the current page in the chapter menu, if it's there. */
+  current?: string;
+}
+
+const { title, current } = Astro.props;
+---
+
+<header class="site-header">
+  <div class="site-header-inner">
+    <a class="site-title" href={url()}>{title}</a>
+    <div class="site-controls">
+      <ThemeToggle />
+      <ChapterMenu current={current} />
+    </div>
+  </div>
+</header>
+
+<style>
+  .site-header {
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .site-header-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    min-height: 3.5rem;
+  }
+
+  .site-title {
+    color: var(--text);
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .site-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+</style>

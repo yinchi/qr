@@ -1,16 +1,20 @@
 ---
 import 'katex/dist/katex.min.css';
 import '../styles/global.css';
-import { asset, url } from '../lib/url';
+import SiteHeader from '../components/SiteHeader.astro';
+import { asset } from '../lib/url';
 
 interface Props {
   title: string;
   description: string;
+  /** Id of this page in the chapter menu (a chapter id, or 'demo'), so the menu can mark it. */
+  current?: string;
 }
 
 const SITE_TITLE = 'QR code explainer';
-const { title, description } = Astro.props;
+const { title, description, current } = Astro.props;
 const pageTitle = title === SITE_TITLE ? title : `${title} · ${SITE_TITLE}`;
+const hasAside = Astro.slots.has('aside');
 ---
 
 <!doctype html>
@@ -21,14 +25,28 @@ const pageTitle = title === SITE_TITLE ? title : `${title} · ${SITE_TITLE}`;
     <meta name="description" content={description} />
     <title>{pageTitle}</title>
     <link rel="icon" type="image/svg+xml" href={asset('favicon.svg')} />
+    <script is:inline>
+      // Apply a saved colour theme before the page is drawn, so it doesn't flash. See ThemeToggle.astro.
+      try {
+        const theme = localStorage.getItem('theme');
+        if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
+      } catch {}
+    </script>
   </head>
-  <body>
-    <header class="site-header">
-      <a href={url()}>{SITE_TITLE}</a>
-    </header>
-    <main>
-      <slot />
-    </main>
-    <slot name="footer" />
+  <body class:list={{ 'has-aside': hasAside }}>
+    <a class="skip-link" href="#content">Skip to content</a>
+    <SiteHeader title={SITE_TITLE} current={current} />
+    <div class="page">
+      <main id="content">
+        <slot />
+      </main>
+      {
+        hasAside && (
+          <aside class="page-aside">
+            <slot name="aside" />
+          </aside>
+        )
+      }
+    </div>
   </body>
 </html>

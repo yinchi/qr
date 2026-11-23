@@ -2,6 +2,9 @@
 import { render } from 'astro:content';
 import Base from '../layouts/Base.astro';
 import ChapterNav, { type NavLink } from '../components/ChapterNav.astro';
+import TableOfContents from '../components/TableOfContents.astro';
+import H2 from '../components/headings/H2.astro';
+import H3 from '../components/headings/H3.astro';
 import { getChapters, type Chapter } from '../lib/chapters';
 import { url } from '../lib/url';
 
@@ -20,7 +23,7 @@ interface Props {
 }
 
 const { chapter, prev, next } = Astro.props;
-const { Content } = await render(chapter);
+const { Content, headings } = await render(chapter);
 
 const link = (c: Chapter): NavLink => ({
   href: url(c.id),
@@ -30,9 +33,11 @@ const link = (c: Chapter): NavLink => ({
 const nextLink = next ? link(next) : { href: url('demo'), label: 'Full demo' };
 ---
 
-<Base title={chapter.data.title} description={chapter.data.description}>
+<Base title={chapter.data.title} description={chapter.data.description} current={chapter.id}>
   <p class="eyebrow">Chapter {chapter.data.order}</p>
   <h1>{chapter.data.title}</h1>
-  <Content />
-  <ChapterNav slot="footer" prev={prev && link(prev)} next={nextLink} />
+  <TableOfContents headings={headings} variant="inline" />
+  <Content components={{ h2: H2, h3: H3 }} />
+  <ChapterNav prev={prev && link(prev)} next={nextLink} />
+  <TableOfContents slot="aside" headings={headings} variant="sidebar" />
 </Base>

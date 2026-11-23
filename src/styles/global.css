@@ -1,22 +1,23 @@
+/* Colours follow the system setting unless the theme toggle has set data-theme on <html>. */
 :root {
-  --bg: #fdfcfa;
-  --text: #1c1b19;
-  --muted: #6b6862;
-  --link: #1f5fbf;
-  --rule: #e3e0da;
+  color-scheme: light dark;
+  --bg: light-dark(#fdfcfa, #16161a);
+  --surface: light-dark(#ffffff, #1f1f24);
+  --text: light-dark(#1c1b19, #e8e6e3);
+  --muted: light-dark(#6b6862, #9a978f);
+  --link: light-dark(#1f5fbf, #7fb0ff);
+  --rule: light-dark(#e3e0da, #2e2e34);
   --measure: 42rem;
+  --aside: 14rem;
+  --gutter: 16px;
+}
+
+:root[data-theme='light'] {
   color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #16161a;
-    --text: #e8e6e3;
-    --muted: #9a978f;
-    --link: #7fb0ff;
-    --rule: #2e2e34;
-    color-scheme: dark;
-  }
+:root[data-theme='dark'] {
+  color-scheme: dark;
 }
 
 *,
@@ -36,27 +37,42 @@ a {
   color: var(--link);
 }
 
-.site-header,
-main,
-.chapter-nav {
-  max-width: var(--measure);
+/* Page layout: one reading column, plus a contents sidebar on wide screens for pages that have one. */
+.site-header-inner,
+.page {
+  max-width: calc(var(--measure) + 2 * var(--gutter));
   margin: 0 auto;
-  padding: 0 16px;
-}
-
-.site-header {
-  padding-block: 1rem;
-  border-bottom: 1px solid var(--rule);
-}
-
-.site-header a {
-  color: var(--text);
-  font-weight: 600;
-  text-decoration: none;
+  padding-inline: var(--gutter);
 }
 
 main {
-  padding-block: 2rem;
+  min-width: 0;
+  padding-block: 2rem 3rem;
+}
+
+.page-aside {
+  display: none;
+}
+
+@media (min-width: 64rem) {
+  .has-aside .site-header-inner,
+  .has-aside .page {
+    max-width: calc(var(--measure) + 3rem + var(--aside) + 2 * var(--gutter));
+  }
+
+  .has-aside .page {
+    display: grid;
+    grid-template-columns: minmax(0, var(--measure)) var(--aside);
+    column-gap: 3rem;
+  }
+
+  .has-aside .page-aside {
+    display: block;
+  }
+
+  .has-aside .toc-inline {
+    display: none;
+  }
 }
 
 h1 {
@@ -64,45 +80,72 @@ h1 {
   line-height: 1.2;
 }
 
+h2,
+h3 {
+  scroll-margin-top: 1rem;
+}
+
 .eyebrow {
   margin: 0 0 0.25rem;
   color: var(--muted);
   font-size: 0.875rem;
-  text-transform: uppercase;
   letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
-.contents li {
-  margin-bottom: 1rem;
-}
-
-.contents p {
-  margin: 0.25rem 0 0;
+/* Links to each section, shown on hover or focus (always, on touch screens). */
+.heading-link {
+  display: inline-block;
+  margin-left: 0.35em;
   color: var(--muted);
+  vertical-align: middle;
+  opacity: 0;
 }
 
-.chapter-nav {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  padding-block: 1.5rem 3rem;
-  border-top: 1px solid var(--rule);
+.heading-link:hover {
+  color: var(--link);
 }
 
-.chapter-nav a {
-  display: flex;
-  flex-direction: column;
-  text-decoration: none;
+.heading-link-icon {
+  display: block;
+  width: 0.7em;
+  height: 0.7em;
 }
 
-.chapter-nav a[rel='next'] {
-  margin-left: auto;
-  text-align: right;
+h2:hover .heading-link,
+h3:hover .heading-link,
+.heading-link:focus-visible {
+  opacity: 1;
 }
 
-.chapter-nav .direction {
-  color: var(--muted);
-  font-size: 0.875rem;
+@media (hover: none) {
+  .heading-link {
+    opacity: 1;
+  }
+}
+
+.skip-link {
+  position: absolute;
+  top: -3rem;
+  left: var(--gutter);
+  z-index: 30;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.skip-link:focus {
+  top: 0.5rem;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 /* Wide display formulas scroll sideways inside their own box instead of widening the page. */

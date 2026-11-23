@@ -11,8 +11,8 @@ const prev: NavLink | undefined = last && {
 };
 ---
 
-<Base title="Full demo" description="Make a QR code, damage it, and see whether it can still be read.">
+<Base title="Full demo" description="Make a QR code, damage it, and see whether it can still be read." current="demo">
   <h1>Full demo</h1>
   <p>Make a QR code, damage it, and see whether it can still be read.</p>
-  <ChapterNav slot="footer" prev={prev} />
+  <ChapterNav prev={prev} />
 </Base>
