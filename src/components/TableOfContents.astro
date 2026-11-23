@@ -40,15 +40,16 @@ const items = headings.filter((heading) => heading.depth === 2 || heading.depth 
 }
 
 <script>
-  // Mark the section being read in the sidebar: the last heading that has scrolled past the top of the window.
+  // Mark the section being read in the sidebar: the last heading that has scrolled up to just below the header.
   const links = [...document.querySelectorAll<HTMLAnchorElement>('.toc-sidebar a')];
   const targets = links.map((link) => document.getElementById(decodeURIComponent(link.hash.slice(1))));
   let frame = 0;
   function update() {
     frame = 0;
     let active = -1;
+    const line = (document.querySelector('.site-header')?.getBoundingClientRect().bottom ?? 0) + 64;
     targets.forEach((target, i) => {
-      if (target && target.getBoundingClientRect().top < 120) active = i;
+      if (target && target.getBoundingClientRect().top < line) active = i;
     });
     // Short sections at the end may never reach the top of the window, so mark the last one at the bottom of the page.
     if (innerHeight + scrollY >= document.documentElement.scrollHeight - 2) active = links.length - 1;
@@ -103,8 +104,8 @@ const items = headings.filter((heading) => heading.depth === 2 || heading.depth 
 
   .toc-sidebar {
     position: sticky;
-    top: 0;
-    max-height: 100vh;
+    top: calc(var(--header-height) + 1px);
+    max-height: calc(100vh - var(--header-height) - 1px);
     overflow-y: auto;
     padding-block: 2rem;
   }

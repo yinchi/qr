@@ -5,6 +5,7 @@ import ChapterNav, { type NavLink } from '../components/ChapterNav.astro';
 import TableOfContents from '../components/TableOfContents.astro';
 import H2 from '../components/headings/H2.astro';
 import H3 from '../components/headings/H3.astro';
+import Table from '../components/Table.astro';
 import { getChapters, type Chapter } from '../lib/chapters';
 import { url } from '../lib/url';
 
@@ -37,7 +38,7 @@ const nextLink = next ? link(next) : { href: url('demo'), label: 'Full demo' };
   <p class="eyebrow">Chapter {chapter.data.order}</p>
   <h1>{chapter.data.title}</h1>
   <TableOfContents headings={headings} variant="inline" />
-  <Content components={{ h2: H2, h3: H3 }} />
+  <Content components={{ h2: H2, h3: H3, table: Table }} />
   <ChapterNav prev={prev && link(prev)} next={nextLink} />
   <TableOfContents slot="aside" headings={headings} variant="sidebar" />
 </Base>

@@ -23,7 +23,12 @@ const { title, current } = Astro.props;
 </header>
 
 <style>
+  /* Stays at the top while scrolling. Things that must clear it use --header-height: see global.css. */
   .site-header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--bg);
     border-bottom: 1px solid var(--rule);
   }
 
@@ -32,7 +37,7 @@ const { title, current } = Astro.props;
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
-    min-height: 3.5rem;
+    height: var(--header-height);
   }
 
   .site-title {

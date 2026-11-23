@@ -10,6 +10,8 @@
   --measure: 42rem;
   --aside: 14rem;
   --gutter: 16px;
+  /* Height of the sticky site header, not counting its 1px border. */
+  --header-height: 3.5rem;
 }
 
 :root[data-theme='light'] {
@@ -24,6 +26,11 @@
 *::before,
 *::after {
   box-sizing: border-box;
+}
+
+/* Jumps to a section land just below the sticky header instead of behind it. */
+html {
+  scroll-padding-top: calc(var(--header-height) + 1rem);
 }
 
 body {
@@ -78,11 +85,6 @@ main {
 h1 {
   margin-top: 0;
   line-height: 1.2;
-}
-
-h2,
-h3 {
-  scroll-margin-top: 1rem;
 }
 
 .eyebrow {
@@ -153,4 +155,35 @@ h3:hover .heading-link,
   overflow-x: auto;
   overflow-y: hidden;
   padding-block: 0.25rem;
+}
+
+/* Tables: outlined, with a shaded header row and striped body rows. See Table.astro for the wrapper. */
+.table-wrap {
+  margin: 1.5rem 0;
+  overflow-x: auto;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+}
+
+.table-wrap table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.table-wrap th,
+.table-wrap td {
+  padding: 0.5rem 0.875rem;
+  vertical-align: top;
+}
+
+.table-wrap th {
+  border-bottom: 1px solid var(--rule);
+  background: color-mix(in srgb, var(--text) 7%, var(--bg));
+  font-weight: 600;
+  text-align: start;
+}
+
+.table-wrap tbody tr:nth-child(even) {
+  background: color-mix(in srgb, var(--text) 3.5%, var(--bg));
 }

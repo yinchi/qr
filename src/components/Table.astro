@@ -1,0 +1,8 @@
+---
+// Markdown tables, used in place of the plain <table> MDX would render. The wrapper draws the outline and lets a wide
+// table scroll sideways inside it instead of widening the page.
+---
+
+<div class="table-wrap">
+  <table {...Astro.props}><slot /></table>
+</div>
