@@ -1,3 +1,6 @@
 node_modules/
 dist/
 .astro/
+
+# Copyrighted reference material; keep local only
+ISO_IEC18004-2015.pdf

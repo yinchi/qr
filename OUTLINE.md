@@ -9,22 +9,23 @@ Six pages: five chapters, read in order, and a standalone full demo.
 
 ## Chapter 1: Parts of a QR code
 
-- The fixed parts
-  - Finder patterns: the three large squares in the corners, used to locate the code and work out its orientation
-  - Separators: the light border, one module wide, around each finder pattern
-  - Timing stripes
-  - Alignment patterns: none in version 1, more as the version increases
-  - Dark module: a single module next to the bottom-left finder pattern that is always dark
-- Quiet zone: the light margin, four modules wide, around the whole code
-- Format stripes
-- Version information: two 6×3 blocks next to the top-right and bottom-left finder patterns, only in versions 7 and up
-- Data area
-- Interactive widget: the fixed parts for a given version
+- Interactive widget at the top of the page: the fixed parts for a given version, starting at version 7
   - Pick a version (1–40) and see only the fixed parts, with the size of the code (17 + 4 × version modules per side)
   - Show where the alignment patterns go and how their number grows with the version
   - Toggle the area reserved for the format information, left blank because its bits depend on the error correction level and mask
   - From version 7, show the actual version information bits, since they depend only on the version
   - Count the modules left over for the data area
+  - The sections below follow the order of the widget's legend
+- The fixed parts
+  - Finder patterns: the three large squares in the corners, used to locate the code and work out its orientation
+  - Separators: light strips, one module wide, on the sides of each finder pattern that face into the code
+  - Timing patterns
+  - Alignment patterns: none in version 1, more as the version increases
+  - Dark module: a single module next to the bottom-left finder pattern that is always dark
+- Quiet zone: the light margin, four modules wide, around the whole code
+- Format information: two copies of 15 bits beside the finder patterns
+- Version information, only in versions 7 and up: a block 6 modules tall and 3 wide left of the top-right finder pattern, and the same block turned on its side above the bottom-left one
+- Data area
 
 ## Chapter 2: Format and version information
 
@@ -37,8 +38,8 @@ Six pages: five chapters, read in order, and a standalone full demo.
   - BCH(15, 5) interactive encoder/decoder: encode, introduce errors by flipping bits, and verify if code is still recoverable
   - The format information is stored twice, so a decoder can fall back on the second copy
 - Version information (versions 7 and up)
-  - The version number (6 bits) encoded with BCH(18, 6), stored twice
-  - Reuse the BCH encoder/decoder widget
+  - The version number (6 bits) encoded with the (18, 6) Golay code, stored twice, not masked
+  - Reuse the encoder/decoder widget: same polynomial division as the BCH code, with a different generator
 
 ## Chapter 3: Encoding the data
 

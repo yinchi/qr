@@ -104,3 +104,10 @@ h1 {
   color: var(--muted);
   font-size: 0.875rem;
 }
+
+/* Wide display formulas scroll sideways inside their own box instead of widening the page. */
+.katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-block: 0.25rem;
+}
