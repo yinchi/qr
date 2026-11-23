@@ -1,0 +1,18 @@
+---
+import Base from '../layouts/Base.astro';
+import ChapterNav, { type NavLink } from '../components/ChapterNav.astro';
+import { getChapters } from '../lib/chapters';
+import { url } from '../lib/url';
+
+const last = (await getChapters()).at(-1);
+const prev: NavLink | undefined = last && {
+  href: url(last.id),
+  label: `Chapter ${last.data.order}: ${last.data.title}`,
+};
+---
+
+<Base title="Full demo" description="Make a QR code, damage it, and see whether it can still be read.">
+  <h1>Full demo</h1>
+  <p>Make a QR code, damage it, and see whether it can still be read.</p>
+  <ChapterNav slot="footer" prev={prev} />
+</Base>

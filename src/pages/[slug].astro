@@ -1,0 +1,38 @@
+---
+import { render } from 'astro:content';
+import Base from '../layouts/Base.astro';
+import ChapterNav, { type NavLink } from '../components/ChapterNav.astro';
+import { getChapters, type Chapter } from '../lib/chapters';
+import { url } from '../lib/url';
+
+export async function getStaticPaths() {
+  const chapters = await getChapters();
+  return chapters.map((chapter, i) => ({
+    params: { slug: chapter.id },
+    props: { chapter, prev: chapters[i - 1], next: chapters[i + 1] },
+  }));
+}
+
+interface Props {
+  chapter: Chapter;
+  prev?: Chapter;
+  next?: Chapter;
+}
+
+const { chapter, prev, next } = Astro.props;
+const { Content } = await render(chapter);
+
+const link = (c: Chapter): NavLink => ({
+  href: url(c.id),
+  label: `Chapter ${c.data.order}: ${c.data.title}`,
+});
+// The last chapter leads on to the full demo.
+const nextLink = next ? link(next) : { href: url('demo'), label: 'Full demo' };
+---
+
+<Base title={chapter.data.title} description={chapter.data.description}>
+  <p class="eyebrow">Chapter {chapter.data.order}</p>
+  <h1>{chapter.data.title}</h1>
+  <Content />
+  <ChapterNav slot="footer" prev={prev && link(prev)} next={nextLink} />
+</Base>

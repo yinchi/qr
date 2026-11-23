@@ -1,0 +1,22 @@
+---
+import Base from '../layouts/Base.astro';
+import { getChapters } from '../lib/chapters';
+import { url } from '../lib/url';
+
+const chapters = await getChapters();
+---
+
+<Base title="QR code explainer" description="How QR codes store data and survive damage, explained with interactive examples.">
+  <h1>How QR codes work</h1>
+  <ol class="contents">
+    {
+      chapters.map((chapter) => (
+        <li>
+          <a href={url(chapter.id)}>{chapter.data.title}</a>
+          <p>{chapter.data.description}</p>
+        </li>
+      ))
+    }
+  </ol>
+  <p><a href={url('demo')}>Full interactive demo</a>: make a QR code, damage it, and see whether it can still be read.</p>
+</Base>
