@@ -4,14 +4,253 @@ title: Arithmetic on bytes
 description: GF(2⁸), where bytes can be added, multiplied and divided, the basis of Reed-Solomon codes.
 ---
 
+import ByteMultiplier from '../../components/qr/ByteMultiplier.svelte';
+import PowersOfTwo from '../../components/qr/PowersOfTwo.svelte';
+
+[Chapter 2](../format/#bits-as-polynomials) protected the format and version information by dividing polynomials whose
+coefficients were bits. The data is protected the same way, with one change: the coefficients are bytes. Damage to a
+QR code usually comes in patches, such as a smudge or a tear across a cluster of neighbouring modules, and the 8 bits of
+each byte usually sit together in a block 2 modules wide and 4 tall ([chapter 6](../placement/) shows the layout). So
+the data's error correction works with whole bytes: a damaged byte counts as one error, however many of its bits are
+wrong. These are Reed-Solomon codes, the subject of [chapter 5](../reed-solomon/).
+
+Dividing polynomials whose coefficients are bytes takes a way to add, subtract, multiply and divide the bytes
+themselves. This chapter builds one.
+
 ## From bits to bytes
+
+Chapter 2's arithmetic on bits was ordinary arithmetic with one twist, $1 + 1 = 0$, so that adding was XOR and
+subtracting was the same as adding. It followed all the usual rules: the order of a sum or product doesn't matter,
+brackets multiply out, and anything except 0 can be divided by, though with only 0 and 1 there's little to divide. A set
+of values with arithmetic like this is called a _field_, and a finite one is also called a _Galois field_, after the
+mathematician Évariste Galois.
+
+Reed-Solomon codes need a field whose values are the 256 bytes. Encoding needs only adding and multiplying, but
+decoding solves equations to find the errors and repair them, and that takes division too.
+
+### Why not ordinary arithmetic?
+
+The obvious choice is ordinary arithmetic, keeping the remainder after dividing by 256, as computers do with 8-bit
+numbers. Adding and multiplying work, but dividing doesn't:
+
+- $2 \times 128 = 256$, which leaves a remainder of 0. Two bytes that aren't 0 multiply to 0.
+- $2 \times 1 = 2$, and $2 \times 129 = 258$, which also leaves 2. So $2 \div 2$ has two answers, 1 and 129.
+- Nothing times 2 leaves 1: twice anything is even, and so is its remainder after dividing by 256. Nothing can be
+  divided by 2 reliably, nor by any other even number.
+
+The trouble is that 256 splits into factors, $2 \times 128$. Remainders after dividing by a prime number would work,
+but the nearest prime, 257, gives 257 different remainders, one too many for a byte.
+
+### Bytes as polynomials
+
+The way out is chapter 2's idea: read a byte's 8 bits as the coefficients of a polynomial, the first bit for $x^7$ and
+the last for $x^0 = 1$:
+
+$$
+\texttt{00011101} = x^4 + x^3 + x^2 + 1
+$$
+
+Every byte is a polynomial of degree 7 or less with bit coefficients, and every such polynomial is a byte. Adding and
+multiplying the polynomials gives a way to add and multiply bytes. There is a catch, and its fix is the one that failed
+above, done with a polynomial that can't be split into factors.
 
 ## Adding bytes
 
+Adding polynomials adds the coefficients of each power separately. For example, take the bytes 82 and 25:
+
+$$
+\begin{aligned}
+82 &= \texttt{01010010} = x^6 + x^4 + x \\
+25 &= \texttt{00011001} = x^4 + x^3 + 1
+\end{aligned}
+$$
+
+Both have an $x^4$ term. In ordinary algebra their sum would have $2x^4$, but the coefficients are bits, and as in
+chapter 2, $1 + 1 = 0$. So the two $x^4$ terms cancel out:
+
+$$
+\begin{aligned}
+&(x^6 + x^4 + x) + (x^4 + x^3 + 1) \\
+&\quad = x^6 + (1 + 1)x^4 + x^3 + x + 1 \\
+&\quad = x^6 + x^3 + x + 1
+\end{aligned}
+$$
+
+Each power is added on its own, and nothing is carried to the next, so lining the bits up under their powers shows that
+adding is the XOR of the two bytes:
+
+$$
+\begin{array}{r|cccccccc}
+& x^7 & x^6 & x^5 & x^4 & x^3 & x^2 & x & 1 \\
+\hline
+82 & 0 & 1 & 0 & 1 & 0 & 0 & 1 & 0 \\
+25 & 0 & 0 & 0 & 1 & 1 & 0 & 0 & 1 \\
+\hline
+75 & 0 & 1 & 0 & 0 & 1 & 0 & 1 & 1
+\end{array}
+$$
+
+Written as numbers, $82 + 25 = 75$. The sum of two bytes is always a byte. Every byte added to itself gives 0, so each
+byte is its own negative, and subtracting is the same as adding.
+
 ## Multiplying bytes
+
+Multiplying polynomials multiplies every term of one by every term of the other, and adds up the results. Multiplying
+by $x^i$ moves every bit $i$ places to the left, so the product of two bytes $a$ and $b$ is the sum of copies of $a$,
+one for each 1 bit in $b$, shifted left by that bit's position. It's long multiplication in binary, but with XOR
+instead of carrying. For example, multiplying 3 by itself gives two $x$ terms, which cancel out, as $1 + 1 = 0$:
+
+$$
+\begin{aligned}
+3 \times 3 &= (x + 1)(x + 1) \\
+&= x^2 + x + x + 1 \\
+&= x^2 + 1 = 5
+\end{aligned}
+$$
+
+The product can have up to 15 bits, from $x^{14}$ down to $x^0$, too many for a byte. The fix is the one that failed
+for numbers: divide, and keep the remainder. Dividing by a polynomial of degree 8 leaves a remainder of degree 7 or
+less, which is a byte. The standard divides by
+
+$$
+p(x) = x^8 + x^4 + x^3 + x^2 + 1
+$$
+
+or `100011101` in bits (ISO/IEC 18004, 7.5.2). The division is chapter 2's long division: XOR $p(x)$ in under the
+leading 1, again and again, until only 8 bits are left.
+
+Pick two bytes below, by their bits or as numbers, to multiply them.
+
+<ByteMultiplier client:visible />
+
+### Why this polynomial?
+
+Dividing by 256 failed because $256 = 2 \times 128$, so that 2 and 128 multiply to 0. Polynomials can split into factors
+too, with the same result. For example, $x^8 + 1 = (x + 1)^8$, so dividing by $x^8 + 1$ instead, the bytes 3
+($x + 1$) and 255 ($x^7 + x^6 + \dots + 1$), which multiply to $x^8 + 1$, would give 0.
+
+$p(x)$ can't be split into factors: it is _irreducible_, the polynomial version of a prime number, which is why the
+standard calls it the field's "prime modulus polynomial". With it, no two bytes multiply to 0 unless one of them is 0.
+There are 30 irreducible polynomials of degree 8, and any of them would give a field of 256 bytes. The next section
+shows what makes this one a good choice.
 
 ## Powers of 2 and log tables
 
+Multiplying by 2 is the simplest case. 2 is `00000010`, or $x$, so multiplying by 2 shifts the bits one place left. If
+a 1 moves out of the byte, the result has degree 8, and one step of division brings it back: XOR with `100011101`. So
+the powers of 2 begin as usual, 1, 2, 4, 8, 16, 32, 64, 128, but then
+
+$$
+\begin{aligned}
+2^8 &= \texttt{100000000} \oplus \texttt{100011101} \\
+&= \texttt{00011101} = 29
+\end{aligned}
+$$
+
+and go on 58, 116, 232, 205, 135 and so on. Step through them below, or press Play. The powers of 2 visit every byte
+except 0, each exactly once, and arrive back at 1 at $2^{255}$.
+
+<PowersOfTwo client:visible />
+
+So every byte except 0 is a power of 2, and has a _log_: the power $k$, from 0 to 254, for which $2^k$ is that byte.
+
+That isn't so for every irreducible polynomial. The powers of 2 always come back to 1, but they can do it before
+reaching every byte. The AES encryption standard uses the irreducible polynomial $x^8 + x^4 + x^3 + x + 1$, and there
+the powers of 2 come back to 1 after only 51 steps. A polynomial for which the powers of 2 reach every byte except 0 is
+called _primitive_. 16 of the 30 irreducible polynomials of degree 8 are, including the standard's, which is why it can
+call 2 the field's _primitive element_ (Annex A).
+
+> **Finding all 16.** A polynomial of degree 8 is $x^8$ plus one of 256 bytes, few enough to try every one. For each,
+> start at 1 and keep multiplying by 2, shifting left and XORing with that polynomial, until the powers come back to 1.
+> Exactly 16 polynomials take 255 steps, and the standard's is the smallest of them. This finds them without checking
+> first which polynomials are irreducible. Under one that splits into factors, some bytes multiply to 0, and no power of
+> 2 can be one of them: if $2^k \times b$ were 0, multiplying on by 2 until the powers return to 1 would turn it into
+> $b$, but multiplying 0 always gives 0. So the powers can't visit all 255 non-zero bytes.
+
+### Multiplying with logs
+
+Logs turn multiplying into adding, as they do for ordinary numbers:
+
+$$
+2^j \times 2^k = 2^{j + k}
+$$
+
+The powers repeat every 255 steps, as $2^{255} = 1$, so if $j + k$ is 255 or more, subtract 255. For example,
+$3 = 2^{25}$, so $3 \times 3 = 2^{50}$, which is 5, as before.
+
+Software that makes and reads QR codes multiplies this way. A table of the 255 powers and a table of the logs turn every
+multiplication into three lookups and an addition, instead of shifting and dividing; the byte multiplier above checks
+its answer this way. 0 is the exception: it isn't a power of 2, so it has no log, but anything times 0 is 0 anyway.
+
 ## Dividing bytes
 
+The powers of 2 also give every byte except 0 an _inverse_: a byte to multiply it by to get 1. If a byte is $2^k$, its
+inverse is $2^{255 - k}$, because
+
+$$
+2^k \times 2^{255 - k} = 2^{255} = 1
+$$
+
+For example, $2 = 2^1$, so its inverse is $2^{254}$, which is 142. Multiplying 142, `10001110`, by 2 shifts it left to
+`100011100`, and XOR with `100011101` leaves `00000001`, or 1. With remainders after dividing by 256, 2 had no inverse
+at all. The table of powers above shows the inverse of each byte: point at one to see it.
+
+Dividing by a byte is multiplying by its inverse, which is the same as subtracting logs:
+
+$$
+2^j \div 2^k = 2^{j - k}
+$$
+
+adding 255 if $j - k$ is negative. Every byte except 0 can be divided by, with exactly one answer.
+
+So bytes can now be added, subtracted, multiplied and divided, following the same rules as ordinary arithmetic. This
+is the field the standard calls GF(2⁸): the Galois field with $2^8 = 256$ values (7.5.2).
+
 ## Polynomials with byte coefficients
+
+Reed-Solomon codes work with polynomials whose coefficients are bytes. Here $x$ is a new variable, and it no longer
+matters that each byte is itself a polynomial: bytes are just values to add and multiply as in this chapter. To keep
+the two apart, the standard writes the byte 2 as $\alpha$, so its powers are
+$\alpha^0 = 1$, $\alpha^1 = 2$, $\alpha^2 = 4$, up to $\alpha^{254}$ (Annex A).
+
+Adding two polynomials adds the coefficients of each power, with byte addition, XOR. Here $3 + 1 = 2$, $5 + 5 = 0$
+and $7 + 2 = 5$:
+
+$$
+\begin{aligned}
+(3x^2 + 5x + 7) &+ (x^2 + 5x + 2) \\
+&= 2x^2 + 5
+\end{aligned}
+$$
+
+Multiplying multiplies every term by every term and adds the results, with byte multiplication. Reed-Solomon codes use
+products like this one, where subtracting is adding:
+
+$$
+\begin{aligned}
+(x - 1)(x - 2) &= x^2 + (1 + 2)x + 1 \times 2 \\
+&= x^2 + 3x + 2
+\end{aligned}
+$$
+
+Since $3 = \alpha^{25}$, the standard writes this as $x^2 + \alpha^{25}x + \alpha$, the first of its _generator
+polynomials_ (Table A.1). Chapter 5 shows what they are for.
+
+Dividing is long division again. Each step divides the leading coefficient of what's left by the leading coefficient
+of the divisor, and subtracts that multiple of the divisor, which clears the leading term. For example, to divide
+$7x^3 + x^2$ by $x^2 + 3x + 2$:
+
+1. The leading term is $7x^3$, so subtract $7x$ times the divisor, $7x^3 + 9x^2 + 14x$. Here $7 \times 3 = 9$: `111`
+   times `11` is `111` ⊕ `1110` = `1001`. That leaves $8x^2 + 14x$, as $1 + 9 = 8$.
+2. The leading term is now $8x^2$, so subtract 8 times the divisor, $8x^2 + 24x + 16$. That leaves $22x + 16$, as
+   $14 + 24 = 22$.
+
+$22x + 16$ has a lower degree than the divisor, so it is the remainder, and the quotient is $7x + 8$. This divisor's
+leading coefficient is 1, so each step only needed the leading coefficient of what was left; the divisors are always
+like this when encoding, but decoding needs division by other bytes too.
+
+This is a Reed-Solomon encoder in miniature. The dividend is two data bytes, 7 and 1, followed by two zero bytes, and
+the divisor is the generator polynomial from above. Putting the remainder in place of the zeros gives
+$7x^3 + x^2 + 22x + 16$: the data, then two error correction bytes, 22 and 16, which together make a multiple of
+$x^2 + 3x + 2$. [Chapter 5](../reed-solomon/) does the same with real data and longer generators, and shows how a
+scanner uses the error correction bytes to find and repair damaged bytes.

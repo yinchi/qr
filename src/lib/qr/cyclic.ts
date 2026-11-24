@@ -37,21 +37,30 @@ export interface Division {
 }
 
 /**
+ * Long division of `dividend` by `divisor`, both polynomials over GF(2) written as bits, step by step: XOR the divisor
+ * in under each leading 1 until fewer bits are left than the divisor has.
+ */
+export function longDivision(dividend: number, divisor: number): { steps: DivisionStep[]; remainder: number } {
+  const degree = bitLength(divisor) - 1;
+  const steps: DivisionStep[] = [];
+  let value = dividend;
+  while (bitLength(value) > degree) {
+    const shift = bitLength(value) - 1 - degree;
+    const shifted = divisor * 2 ** shift;
+    steps.push({ value, shifted, shift });
+    value ^= shifted;
+  }
+  return { steps, remainder: value };
+}
+
+/**
  * Long division of data·x^d by `generator` (a polynomial of degree d over GF(2), written as bits), step by step.
  * `dataBits` fixes how many bits the data has, including leading zeros.
  */
 export function divide(data: number, dataBits: number, generator: number): Division {
   const degree = bitLength(generator) - 1;
   const dividend = data * 2 ** degree;
-  const steps: DivisionStep[] = [];
-  let value = dividend;
-  while (bitLength(value) > degree) {
-    const shift = bitLength(value) - 1 - degree;
-    const shifted = generator * 2 ** shift;
-    steps.push({ value, shifted, shift });
-    value ^= shifted;
-  }
-  return { dividend, width: dataBits + degree, degree, steps, remainder: value };
+  return { dividend, width: dataBits + degree, degree, ...longDivision(dividend, generator) };
 }
 
 /**
