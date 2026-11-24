@@ -166,7 +166,7 @@
       {/each}
     </ul>
 
-    <div class="codewords" role="group" aria-label="Data codewords, bit by bit" onpointerover={point} onpointerleave={() => (active = null)}>
+    <div class="codewords" role="group" aria-label="Data codewords, bit by bit" onpointerover={point} onpointerleave={(event) => event.pointerType !== 'touch' && (active = null)}>
       {#each codewords as cw, i (i)}
         <div class="codeword">
           <div class="cells">

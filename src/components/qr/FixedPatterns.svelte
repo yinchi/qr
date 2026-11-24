@@ -148,7 +148,8 @@
         aria-label="The fixed parts of a version {version} QR code, {size} by {size} modules"
         shape-rendering="crispEdges"
         onpointermove={onPointerMove}
-        onpointerleave={() => (pointed = null)}
+        onpointerdown={onPointerMove}
+        onpointerleave={(event) => event.pointerType !== 'touch' && (pointed = null)}
       >
         <rect x={-margin} y={-margin} width={size + 2 * margin} height={size + 2 * margin} fill={LIGHT} />
         {#if showQuietZone && highlighted === 'quietZone'}

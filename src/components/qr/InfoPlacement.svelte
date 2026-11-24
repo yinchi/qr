@@ -106,7 +106,7 @@
           viewBox="0 0 {cols.length} {rows.length}"
           role="img"
           aria-label="{corner.name} corner of a version {version} code, with the bit number in each format and version information module"
-          onpointerleave={() => (active = null)}
+          onpointerleave={(event) => event.pointerType !== 'touch' && (active = null)}
         >
           <rect width={cols.length} height={rows.length} fill={LIGHT} />
           {#each rows as r, y (r)}
@@ -161,7 +161,7 @@
         {#if row.kind === 'version' && version < 7}
           <p class="none">None below version 7.</p>
         {:else}
-          <div class="string-bits" role="group" aria-label={row.label} onpointerleave={() => (active = null)}>
+          <div class="string-bits" role="group" aria-label={row.label} onpointerleave={(event) => event.pointerType !== 'touch' && (active = null)}>
             {#each range(0, row.width - 1).reverse() as bit (bit)}
               <button
                 type="button"
