@@ -206,7 +206,7 @@ export function fixedLayout(version: number): FixedLayout {
   return { version, size, roles, dark, alignmentCentres: centres, versionInfo };
 }
 
-type Position = [row: number, col: number];
+export type Position = [row: number, col: number];
 
 /**
  * Where each of the 15 format information bits goes, for both copies, indexed by bit number (0 is the least
