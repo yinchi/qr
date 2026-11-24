@@ -63,7 +63,9 @@ main {
 
 @media (min-width: 64rem) {
   .has-aside .site-header-inner,
-  .has-aside .page {
+  .has-aside .page,
+  .wide .site-header-inner,
+  .wide .page {
     max-width: calc(var(--measure) + 3rem + var(--aside) + 2 * var(--gutter));
   }
 

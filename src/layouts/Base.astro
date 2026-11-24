@@ -9,10 +9,15 @@ interface Props {
   description: string;
   /** Id of this page in the chapter menu (a chapter id, or 'demo'), so the menu can mark it. */
   current?: string;
+  /**
+   * Give the main column the width that chapter pages share with their contents sidebar, for a page whose widget
+   * needs the room. The page keeps its text to the usual reading width itself.
+   */
+  wide?: boolean;
 }
 
 const SITE_TITLE = 'QR code explainer';
-const { title, description, current } = Astro.props;
+const { title, description, current, wide = false } = Astro.props;
 const pageTitle = title === SITE_TITLE ? title : `${title} · ${SITE_TITLE}`;
 const hasAside = Astro.slots.has('aside');
 ---
@@ -33,7 +38,7 @@ const hasAside = Astro.slots.has('aside');
       } catch {}
     </script>
   </head>
-  <body class:list={{ 'has-aside': hasAside }}>
+  <body class:list={{ 'has-aside': hasAside, wide }}>
     <a class="skip-link" href="#content">Skip to content</a>
     <SiteHeader title={SITE_TITLE} current={current} />
     <div class="page">

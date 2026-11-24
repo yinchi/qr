@@ -1,6 +1,8 @@
 ---
 import Base from '../layouts/Base.astro';
 import ChapterNav, { type NavLink } from '../components/ChapterNav.astro';
+import H2 from '../components/headings/H2.astro';
+import FullDemo from '../components/qr/FullDemo.svelte';
 import { getChapters } from '../lib/chapters';
 import { url } from '../lib/url';
 
@@ -11,8 +13,67 @@ const prev: NavLink | undefined = last && {
 };
 ---
 
-<Base title="Full demo" description="Make a QR code, damage it, and see whether it can still be read." current="demo">
-  <h1>Full demo</h1>
-  <p>Make a QR code, damage it, and see whether it can still be read.</p>
+<Base
+  title="Full demo"
+  description="Make a QR code, damage it, and see whether it can still be read."
+  current="demo"
+  wide
+>
+  <div class="measure">
+    <h1>Full demo</h1>
+    <p>
+      Make a QR code, damage it, and see whether it can still be read. Each step a scanner takes is shown with its
+      result, and links to the chapter that explains it.
+    </p>
+  </div>
+
+  <FullDemo client:visible />
+
+  <div class="measure">
+    <H2 id="things-to-try">Things to try</H2>
+    <ul>
+      <li>
+        Flip modules one at a time in one corner of the data area, and watch the damaged bytes add up until a block fails.
+        Then try the same at level H.
+      </li>
+      <li>
+        Damage the format information around the top-left finder pattern. With more than 3 bits wrong, the scanner reads
+        the other copy instead (<a href="../format/#two-copies">chapter 2</a>).
+      </li>
+      <li>
+        Type a longer text, so the code has several blocks, and add a blot. Interleaving shares its bytes out among the
+        blocks (<a href="../reed-solomon/#splitting-into-blocks-and-interleaving">chapter 5</a>).
+      </li>
+      <li>
+        <em>Cause a misread</em> damages a block so that it lies closer to the block for a slightly different text, and the
+        decoder corrects it to that one (<a href="../reed-solomon/#too-many-errors">chapter 5</a>). The scanner returns the
+        wrong text without noticing.
+      </li>
+      <li>
+        Turn off the marks and point your phone's camera at the screen. Scanners differ in the details, and a camera adds
+        its own problems, so a real one won't always agree.
+      </li>
+    </ul>
+
+    <H2 id="what-the-demo-leaves-out">What the demo leaves out</H2>
+    <p>
+      A real scanner starts with a photo. It finds the three finder patterns, works out the grid of modules from them and
+      the timing and alignment patterns, and decides whether each module is dark or light (section 12). This demo starts
+      from the grid itself, so those patterns can't be damaged here.
+    </p>
+    <p>
+      The demo also treats every damaged byte as an error. A scanner that knows some modules are unreadable, say under a
+      smudge, could treat their bytes as <a href="../reed-solomon/#erasures">erasures</a> and correct up to twice as many of
+      them.
+    </p>
+  </div>
+
   <ChapterNav prev={prev} />
 </Base>
+
+<style>
+  /* The page is wide for the widget; text keeps to the usual reading width. */
+  .measure {
+    max-width: var(--measure);
+  }
+</style>

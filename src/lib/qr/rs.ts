@@ -209,3 +209,24 @@ export function interleave<T>(blocks: readonly Block<T>[]): T[] {
   }
   return sequence;
 }
+
+/** Sort a symbol's codeword sequence back into its blocks, as a decoder does (section 12, step aa): undoes `interleave`. */
+export function deinterleave<T>(sequence: readonly T[], version: number, level: EcLevel): Block<T>[] {
+  const info = ecInfo(version, level);
+  if (sequence.length !== info.totalCodewords) {
+    throw new RangeError(`Version ${version} has ${info.totalCodewords} codewords, got ${sequence.length}`);
+  }
+  const blocks: Block<T>[] = info.blocks.flatMap((group) =>
+    Array.from({ length: group.count }, () => ({ data: [] as T[], ec: [] as T[] })),
+  );
+  const lengths = info.blocks.flatMap((group) => new Array<number>(group.count).fill(group.data));
+  let next = 0;
+  for (const part of ['data', 'ec'] as const) {
+    const length = (b: number) => (part === 'data' ? lengths[b] : info.ecPerBlock);
+    const longest = Math.max(...blocks.map((_, b) => length(b)));
+    for (let i = 0; i < longest; i++) {
+      blocks.forEach((block, b) => i < length(b) && block[part].push(sequence[next++]));
+    }
+  }
+  return blocks;
+}

@@ -259,3 +259,125 @@ export function smallestVersionFor(mode: Mode, text: string, level: EcLevel): nu
   }
   return null;
 }
+
+/** One segment read back from a bitstream. */
+export interface ParsedSegment {
+  mode: Mode;
+  /** The ECI assignment number in force, if an ECI header came first. */
+  eci: number | null;
+  /** The character count indicator: characters, or bytes in byte mode. */
+  count: number;
+  text: string;
+}
+
+export interface ParsedBitstream {
+  segments: ParsedSegment[];
+  /** The text of all the segments together. */
+  text: string;
+  /** Why the bits couldn't be decoded, or null if they could. */
+  error: string | null;
+}
+
+const MODE_OF_INDICATOR = new Map(MODES.map((mode) => [MODE_INDICATOR[mode], mode]));
+
+/** Bits taken by `count` characters (bytes in byte mode) of a mode, after the character count indicator. */
+function segmentDataBits(mode: Mode, count: number): number {
+  switch (mode) {
+    case 'numeric':
+      return 10 * Math.floor(count / 3) + [0, 4, 7][count % 3];
+    case 'alphanumeric':
+      return 11 * Math.floor(count / 2) + 6 * (count % 2);
+    case 'byte':
+      return 8 * count;
+    case 'kanji':
+      return 13 * count;
+  }
+}
+
+/** The Shift JIS code for a 13-bit kanji mode value: the steps of 7.4.6 in reverse. */
+export function kanjiCode(value: number): number {
+  const shifted = (Math.floor(value / 0xc0) << 8) | value % 0xc0;
+  return shifted + (shifted < 0x1f00 ? 0x8140 : 0xc140);
+}
+
+/**
+ * Read the data codewords back into text (section 12, steps dd and ee): a mode indicator, a character count, then
+ * that many characters, segment after segment, until the terminator or the end. Byte mode is read as ISO/IEC 8859-1
+ * unless an ECI header says UTF-8 (ECI 26).
+ */
+export function parseBitstream(codewords: readonly number[], version: number): ParsedBitstream {
+  const total = 8 * codewords.length;
+  let position = 0;
+  const read = (width: number) => {
+    let value = 0;
+    for (let k = 0; k < width; k++, position++) value = value * 2 + ((codewords[position >> 3] >> (7 - (position & 7))) & 1);
+    return value;
+  };
+  const segments: ParsedSegment[] = [];
+  const result = (error: string | null): ParsedBitstream => ({
+    segments,
+    text: segments.map((s) => s.text).join(''),
+    error,
+  });
+
+  let eci: number | null = null;
+  // Fewer than 4 bits left is a shortened terminator (7.4.9).
+  while (total - position >= MODE_INDICATOR_BITS) {
+    const indicator = read(MODE_INDICATOR_BITS);
+    if (indicator === 0) break;
+
+    if (indicator === ECI_INDICATOR) {
+      // The assignment number takes 1, 2 or 3 codewords, marked by leading bits 0, 10 or 110 (Table 4).
+      const lead = total - position >= 8 ? read(8) : -1;
+      const extra = lead < 0 ? -1 : lead < 0x80 ? 0 : lead < 0xc0 ? 1 : lead < 0xe0 ? 2 : -1;
+      if (extra < 0 || total - position < 8 * extra) return result('an ECI header that runs past the end or is malformed');
+      eci = lead & [0x7f, 0x3f, 0x1f][extra];
+      for (let k = 0; k < extra; k++) eci = eci * 256 + read(8);
+      continue;
+    }
+
+    const mode = MODE_OF_INDICATOR.get(indicator);
+    if (!mode) return result(`mode indicator ${indicator.toString(2).padStart(4, '0')}, which this decoder doesn't handle`);
+    const countWidth = countBits(mode, version);
+    if (total - position < countWidth) return result('a character count that runs past the end');
+    const count = read(countWidth);
+    if (segmentDataBits(mode, count) > total - position) {
+      return result(`a ${mode} segment of ${count} characters, more than the bits that are left`);
+    }
+
+    let text = '';
+    if (mode === 'numeric') {
+      for (let left = count; left > 0; left -= 3) {
+        const digits = Math.min(3, left);
+        const value = read([0, 4, 7, 10][digits]);
+        if (value >= 10 ** digits) return result(`${value} in ${digits} digits of numeric mode`);
+        text += String(value).padStart(digits, '0');
+      }
+    } else if (mode === 'alphanumeric') {
+      for (let left = count; left > 0; left -= 2) {
+        if (left === 1) {
+          const value = read(6);
+          if (value >= 45) return result(`${value}, beyond the 45 alphanumeric characters`);
+          text += ALPHANUMERIC_CHARS[value];
+        } else {
+          const value = read(11);
+          if (value >= 45 * 45) return result(`${value}, beyond the pairs of alphanumeric characters`);
+          text += ALPHANUMERIC_CHARS[Math.floor(value / 45)] + ALPHANUMERIC_CHARS[value % 45];
+        }
+      }
+    } else if (mode === 'byte') {
+      const bytes = Uint8Array.from({ length: count }, () => read(8));
+      if (eci === ECI_UTF8) text = new TextDecoder('utf-8').decode(bytes);
+      else if (eci === null || eci === 3) text = String.fromCharCode(...bytes);
+      else return result(`ECI ${eci}, a character set this decoder doesn't handle`);
+    } else {
+      const decoder = new TextDecoder('shift_jis');
+      for (let k = 0; k < count; k++) {
+        const code = kanjiCode(read(13));
+        text += decoder.decode(new Uint8Array([code >> 8, code & 0xff]));
+      }
+    }
+    segments.push({ mode, eci, count, text });
+  }
+  return result(null);
+}
