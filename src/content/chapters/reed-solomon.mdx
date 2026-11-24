@@ -4,8 +4,304 @@ title: Reed-Solomon codes
 description: Calculating the error correction bytes, recovering damaged data, and interleaving the blocks.
 ---
 
+import BlockInterleaving from '../../components/qr/BlockInterleaving.svelte';
+import ReedSolomonDecoder from '../../components/qr/ReedSolomonDecoder.svelte';
+import ReedSolomonEncoder from '../../components/qr/ReedSolomonEncoder.svelte';
+
+[Chapter 4](../byte-arithmetic/#polynomials-with-byte-coefficients) ended with a Reed-Solomon encoder in miniature:
+two data bytes, divided by a generator polynomial, gave two error correction bytes. This chapter does the same with
+real data, then turns to the harder half: how a scanner uses the error correction bytes to tell whether any bytes were
+misread, find them, and work out what they should have been.
+
+Reed-Solomon codes are named after Irving Reed and Gustave Solomon, who described them in 1960. The same codes protect
+the data on CDs, DVDs and Blu-ray discs, and data sent back by space probes such as Voyager.
+
 ## Encoding
+
+A QR code's data bytes are split into one or more _blocks_, and each block gets its own error correction bytes. The
+last section of this chapter explains the splitting; until then, take a single block, the 16 data bytes of a version
+1-M code. As in chapter 4, the bytes of a block are the coefficients of a polynomial, with the first byte the highest
+power (7.5.2).
+
+The generator polynomial for a block with $n$ error correction bytes has a factor for each of the first $n$ powers of
+$\alpha$ (Annex A). As in [chapter 4](../byte-arithmetic/#polynomials-with-byte-coefficients), $\alpha$ is the byte 2,
+so the factors are $x - 1$, $x - 2$, $x - 4$, $x - 8$ and so on:
+
+$$
+g(x) = (x - \alpha^0)(x - \alpha^1) \cdots (x - \alpha^{n - 1})
+$$
+
+Version 1-M has 10 error correction bytes, so its generator has degree 10. Multiplied out, it is
+
+$$
+\begin{aligned}
+g(x) = x^{10} &+ 216x^9 + 194x^8 \\
+&+ 159x^7 + 111x^6 + 199x^5 \\
+&+ 94x^4 + 95x^3 + 113x^2 \\
+&+ 157x + 193
+\end{aligned}
+$$
+
+Table A.1 lists it with each coefficient as a power of $\alpha$, such as $\alpha^{251}$ for 216.
+
+Encoding works as in [chapter 2](../format/#the-15-5-bch-code): append $n$ zero bytes to the data, which multiplies its
+polynomial by $x^n$, divide by $g(x)$, and put the remainder in place of the zeros. Taking away the remainder leaves a
+multiple of $g(x)$, and taking away is the same as adding, so the finished block is a multiple of $g(x)$. Each step of
+the division clears one data byte, so there are as many steps as data bytes.
+
+The widget below steps through the standard's own example, `01234567` in version 1-M (Annex I), which chapter 3 turned
+into data bytes. Try your own text too.
+
+<ReedSolomonEncoder client:visible />
+
+Each step only involves the leading byte and the 10 after it. The standard describes the encoder that way, as a circuit
+with 10 one-byte registers that holds those 10 bytes and takes in one data byte at a time (Figure 14).
 
 ## Decoding
 
+A scanner reads the 26 bytes of the block, some of which may be wrong, without knowing which. From those bytes alone
+it has to answer three questions: are any of them wrong, which ones, and what should they have been? Annex B sets out
+the steps, and the sections below follow them.
+
+### Syndromes
+
+$g(x)$ is 0 at each of $\alpha^0, \alpha^1, \ldots, \alpha^{n - 1}$, since one of its factors is 0 there. A valid block is
+$g(x)$ times something, so it is 0 there too. A scanner takes the block it read as a polynomial $R(x)$, and works out
+its value at each of those points:
+
+$$
+S_i = R(\alpha^i) \quad \text{for } i = 0, 1, \ldots, n - 1
+$$
+
+These are the _syndromes_, a medical word for a set of symptoms. If they are all 0, the block is valid, and the scanner
+accepts it.
+
+If some bytes were misread, $R(x)$ is the block that was sent, $C(x)$, plus an error polynomial $E(x)$. $E(x)$ is 0
+except at the misread bytes, where its coefficient is the difference between what was read and what was sent: as bytes
+add by XOR, that's the bits that were flipped. Since $C(\alpha^i) = 0$,
+
+$$
+S_i = C(\alpha^i) + E(\alpha^i) = E(\alpha^i)
+$$
+
+so the syndromes depend only on the errors, not on the data. Everything that follows works from the syndromes alone.
+
+### One error
+
+Suppose a single byte was misread: the coefficient of $x^j$, with error value $Y$. Then $E(x) = Yx^j$, and writing
+$X = \alpha^j$ for the error's position,
+
+$$
+S_i = Y(\alpha^i)^j = Y(\alpha^j)^i = YX^i
+$$
+
+The syndromes are $Y$, then $YX$, then $YX^2$, and so on: each is the one before times $X$. So the first syndrome is the
+error value, and dividing the second by the first gives $X$, which says where the error is.
+
+For example, take the block of Annex I, and suppose its sixth byte, 128, is misread as 255. The syndromes are 127, 104,
+204, 41, 126, 220, 166, 144, 131 and 205. They aren't all 0, so something is wrong. Their logs, the powers of $\alpha$
+they are equal to, show the pattern: 87, 107, 127, 147, 167, 187, 207, 227, 247 and 12. Each is 20 more than the one
+before; the last wraps around, as $\alpha^{267} = \alpha^{255} \times \alpha^{12} = \alpha^{12}$.
+
+So $X = \alpha^{20}$, and the error is in the coefficient of $x^{20}$. The first byte is the coefficient of $x^{25}$, so
+that is the sixth byte. The error value is $S_0 = 127$, and adding it to the byte that was read gives back what was
+sent: $255 + 127 = 128$, as `11111111` ⊕ `01111111` = `10000000`. The other eight syndromes check the answer: with more
+than one error, their logs wouldn't keep going up by the same step.
+
+### Erasures
+
+Sometimes a scanner knows which bytes are damaged: their modules may be covered, torn away, or impossible to make out.
+The standard calls a damaged byte in a known place an _erasure_, and one in an unknown place an _error_ (7.5.1).
+
+For an erasure only the value is unknown, and each syndrome gives an equation for the values. With two erasures, at
+positions $X_1$ and $X_2$ with values $Y_1$ and $Y_2$, the first two syndromes are
+
+$$
+\begin{aligned}
+S_0 &= Y_1 + Y_2 \\
+S_1 &= Y_1X_1 + Y_2X_2
+\end{aligned}
+$$
+
+$X_1$ and $X_2$ are known, so these are two linear equations in two unknowns, solved as in school algebra. Multiplying
+the first by $X_1$ and adding it to the second cancels $Y_1$:
+
+$$
+S_1 + X_1S_0 = Y_2(X_1 + X_2)
+$$
+
+$X_1 + X_2$ isn't 0, because the positions are different, so dividing by it gives $Y_2$, and then $Y_1 = S_0 + Y_2$.
+
+The same works for any number of erasures: $e$ erasures need the first $e$ syndromes, and the equations always have
+exactly one solution when the positions are all different. So a block can fill in as many erasures as it has error
+correction bytes, wherever they are: any 10 of the 26 bytes of version 1-M.
+
+### Errors
+
+An error has two unknowns: where it is, and its value. Two unknowns need two syndromes, so the 10 syndromes of version
+1-M can find and fix at most 5 errors. That's why an erasure is worth half an error, as
+[chapter 2](../format/#error-correction-levels) put it: one error correction byte to find where a damaged byte is, and
+one to work out its value. The standard's formula (7.5.1) counts both kinds:
+
+$$
+e + 2t \le d - p
+$$
+
+for $e$ erasures and $t$ errors in a block with $d$ error correction bytes. $p$ is the number of error correction bytes
+kept back to detect errors rather than correct them. It's 0 except in the smallest codes, for reasons explained below.
+
+The values are found as for erasures, once the positions are known. But the positions are harder: they are in the
+exponents, so the equations for them aren't linear. A scanner could try every possible set of positions, solving for
+the values each time and keeping the set that fits all the syndromes. For 4 errors among 26 bytes, there are 14,950 sets
+to try. But blocks in larger codes are up to 153 bytes long and can correct up to 15 errors, and there are about
+$2 \times 10^{20}$ ways to choose 15 positions out of 153. Instead, a decoder finds the positions with a polynomial.
+
+### The error locator
+
+Take two errors, at positions $X_1$ and $X_2$ with values $Y_1$ and $Y_2$, so that $S_i = Y_1X_1^i + Y_2X_2^i$. The _error
+locator polynomial_ $\sigma(x)$ is the polynomial whose roots are the error positions:
+
+$$
+\begin{aligned}
+\sigma(x) &= (x - X_1)(x - X_2) \\
+&= x^2 + \sigma_1x + \sigma_2
+\end{aligned}
+$$
+
+where $\sigma_1 = X_1 + X_2$ and $\sigma_2 = X_1X_2$, remembering that subtracting is adding. Since $\sigma(X_1) = 0$,
+$X_1^2 = \sigma_1X_1 + \sigma_2$. Multiplying both sides by $Y_1X_1^i$ gives
+
+$$
+Y_1X_1^{i + 2} = \sigma_1Y_1X_1^{i + 1} + \sigma_2Y_1X_1^i
+$$
+
+The same holds for $X_2$ and $Y_2$, and adding the two gives
+
+$$
+S_{i + 2} = \sigma_1S_{i + 1} + \sigma_2S_i
+$$
+
+The same two numbers, $\sigma_1$ and $\sigma_2$, turn each pair of syndromes into the next. This time the unknowns are
+not in exponents. Taking $i = 0$ and $i = 1$,
+
+$$
+\begin{aligned}
+S_2 &= \sigma_1S_1 + \sigma_2S_0 \\
+S_3 &= \sigma_1S_2 + \sigma_2S_1
+\end{aligned}
+$$
+
+are two linear equations for $\sigma_1$ and $\sigma_2$, solved as for erasures. That gives $\sigma(x)$, and its roots are
+the error positions. To find them, the scanner simply tries each byte of the block: if $\sigma(\alpha^j) = 0$, the
+coefficient of $x^j$ is wrong. Once the positions are known, the errors can be treated as erasures, and their values
+come from the syndromes as before.
+
+The same works for any number of errors. With $t$ errors, $\sigma(x)$ has degree $t$, and its $t$ unknown coefficients
+come from $t$ equations, which use the syndromes $S_0$ to $S_{2t - 1}$: two syndromes per error again. Annex B writes
+out the four equations for the four errors that version 1-M can correct. For a single error, $\sigma(x) = x - X$, and the
+equations say $S_{i + 1} = XS_i$, the pattern in the example above.
+
+A scanner doesn't know how many errors there are. It tries 0, 1, 2 and so on, and takes the fewest whose $\sigma(x)$
+fits every syndrome, not just the $2t$ used to find it. The syndromes left over check the answer.
+
+So a scanner decodes a block in four steps (Annex B):
+
+1. Work out the syndromes. If they are all 0, stop: there are no errors.
+2. Find $\sigma(x)$ from the syndromes, and try each byte of the block to find its roots, the error positions.
+3. Find the error values from the syndromes.
+4. Add each error value to the byte that was read.
+
+> **A slip in Annex B.** Step (iii) of Annex B gives the equations for the error values with $\alpha^{j_1}$,
+> $\alpha^{j_2}$, … in the first equation and $S_0$ on the right. But by its own step (i), $S_0 = R(1)$, which is the plain
+> sum of the error values. Its equations hold for $S_1$ to $S_4$, not $S_0$ to $S_3$. (The step also lists the error
+> positions as $j_1$, $j_2$ and $j_4$, missing out $j_3$.)
+
+### Erasures and errors together
+
+When a block has both, the erasures are cancelled out of the syndromes first. An erasure at position $X$ with value $Y$
+adds $YX^i$ to each $S_i$, so $S_{i + 1} + XS_i$ has no trace of it: $YX^{i + 1} + X \times YX^i = 0$. Doing this along
+the whole list of syndromes gives a list one shorter with the erasure gone. Each error is still there, as a sequence
+that grows by the same $X_k$ at each step, only with a different value. So each erasure uses up one syndrome, and
+finding the errors in what's left takes two syndromes per error: $e + 2t \le n$ again.
+
+### Try it
+
+The widget below decodes the block from the encoder above. Select bytes to damage them: _Change_ gives a byte a
+different value, as a misread byte would have, and _Erase_ marks it as unreadable. The bar counts what the damage uses
+up: two for each error, one for each erasure.
+
+<ReedSolomonDecoder client:visible />
+
+### Too many errors
+
+With more damage than that, the decoder may find no $\sigma(x)$ that fits, or one without enough roots among the
+block's bytes. Then it knows the block is too badly damaged, and the scanner reports that it can't read the code. Or it
+may find a $\sigma(x)$ that fits, which turns the block into a different valid block, and the scanner returns the wrong
+data without noticing.
+
+It's the same as with the [format information](../format/#decoding) in chapter 2: two valid blocks always differ in at
+least $n + 1$ bytes. If two differed in $n$ bytes or fewer, subtracting one from the other would give a valid block
+with at most $n$ bytes that aren't 0, and its syndromes would all be 0. But think of those bytes as erasures in a block
+of zeros: the erasure equations have exactly one solution, and with every syndrome 0, it is all zeros. So the two blocks
+can't differ at all. With at most $n / 2$ errors, then, the block that was read is closer to the block that was sent
+than to any other. With more, it may land closer to a different one. The last example in the widget is damage of that
+kind.
+
+That's rare when the damage is random, but less rare in small codes. Suppose a block is misread so badly that its bytes
+are effectively random. The decoder accepts it if it happens to be within 5 bytes of a valid block, which for version
+1-M happens to about 1 random block in 17 million. With $p = 2$, it corrects at most 4 errors, the last two syndromes only
+check the answer, and the odds drop to about 1 in 20 billion. The values of $p$ in 7.5.1 bring the smallest codes into
+line with the rest: with them, the odds for every version and level are about 1 in 2 billion or better.
+
+Erasures need the same care. A decoder using most of its syndromes on erasures has few left to check with, so the
+standard sets $p = 3$ whenever more than half of a block's error correction bytes are erased, and says not to use
+erasures at all in codes with fewer than 8 error correction bytes (7.5.1).
+
+### Faster methods
+
+Annex B's method works for any QR code, but most decoders use faster methods that give the same answers. These are the
+names you may have heard:
+
+- **Berlekamp–Massey algorithm** (Elwyn Berlekamp, 1968, and James Massey, 1969). It builds $\sigma(x)$ one syndrome at a
+  time, adjusting it whenever the next syndrome doesn't fit, instead of solving the equations. It finds the number of
+  errors along the way, and for $t$ errors takes about $t^2$ steps instead of the $t^3$ of solving equations. The
+  _Euclidean algorithm_, which finds the greatest common divisor of two numbers, is another way to find $\sigma(x)$.
+- **Chien search** (Robert Chien, 1964). The same trial of every position, arranged so that moving from one position to
+  the next multiplies each term of $\sigma(x)$ by a fixed power of $\alpha$, instead of working out $\sigma(\alpha^j)$
+  afresh each time. It suits hardware, which can do all the multiplications at once.
+- **Forney's algorithm** (David Forney, 1965). A formula that gives each error value directly from $\sigma(x)$ and the
+  syndromes, instead of solving equations.
+
+Annex B's method itself is known as _Peterson's method_, after W. Wesley Peterson, who worked it out in 1960 for BCH
+codes like those in chapter 2; Daniel Gorenstein and Neal Zierler extended it to Reed-Solomon codes in 1961. Many
+descriptions also write the locator the other way round, as $(1 - X_1x)(1 - X_2x)\cdots$, whose roots are the inverses
+of the error positions: it's the same polynomial with its coefficients in reverse order.
+
+A QR code block never needs more than 15 errors found, so solving the equations is quick enough for a scanner, and the
+widget above does it that way.
+
 ## Splitting into blocks and interleaving
+
+Larger codes split their data bytes into several blocks, each with its own error correction bytes (Table 9). One
+reason is that a Reed-Solomon block can't be longer than 255 bytes: each byte needs its own position $\alpha^j$, and
+there are only 255 non-zero bytes. A version 40 code has 3,706 bytes. Another is speed, as finding more errors in a
+longer block takes more work. QR codes keep their blocks to at most 153 bytes, with at most 30 error correction bytes
+each.
+
+Every block in a code has the same number of error correction bytes. When the data bytes don't divide evenly, some
+blocks get one more data byte than the others, and the shorter blocks come first. Version 5-H, for example, has two
+blocks with 11 data bytes and two with 12, each with 22 error correction bytes (7.6).
+
+The blocks are then _interleaved_ (7.6): the final sequence takes the first data byte of each block in turn, then the
+second byte of each, and so on, then the error correction bytes in the same way. The longer blocks' extra data bytes
+come last among the data. Numbering version 5-H's data bytes D1 to D46 and its error correction bytes E1 to E88, block by
+block, the sequence starts D1, D12, D23, D35, D2, D13, D24, D36, and so on (Figure 15).
+
+Interleaving is there for damage. [Chapter 6](../placement/) places the bytes in the code in sequence, each next to the
+one before, so a patch of damage usually hits a run of consecutive bytes. Interleaving shares the run out among the
+blocks, so each gets only a few of the damaged bytes. Try it below: damage a run of bytes, and compare the standard's
+interleaved order with the blocks placed one after another.
+
+<BlockInterleaving client:visible />
+
+The interleaved sequence is what fills the data area of the code. Chapter 6 shows where each of its bits goes.

@@ -158,6 +158,33 @@ export function polyDivide(
   return { quotient: trim(result), remainder: remainder.length ? remainder : [0], steps };
 }
 
+/** The value of a polynomial at x, by Horner's rule: multiply by x and add the next coefficient. */
+export function polyEvaluate(p: Polynomial, x: number): number {
+  return p.reduce((value, c) => multiply(value, x) ^ c, 0);
+}
+
+/**
+ * Solve linear equations with byte coefficients, `matrix` · unknowns = `rhs`, by elimination. Returns null unless there
+ * is exactly one solution, so the matrix must be square.
+ */
+export function solveLinear(matrix: readonly (readonly number[])[], rhs: readonly number[]): number[] | null {
+  const n = rhs.length;
+  if (matrix.length !== n || matrix.some((row) => row.length !== n)) throw new RangeError('Matrix must be square');
+  const rows = matrix.map((row, i) => [...row, rhs[i]]);
+  for (let col = 0; col < n; col++) {
+    const pivot = rows.findIndex((row, r) => r >= col && row[col] !== 0);
+    if (pivot === -1) return null;
+    [rows[col], rows[pivot]] = [rows[pivot], rows[col]];
+    const scale = inverse(rows[col][col]);
+    rows[col] = rows[col].map((c) => multiply(c, scale));
+    for (let r = 0; r < n; r++) {
+      const factor = rows[r][col];
+      if (r !== col && factor !== 0) rows[r] = rows[r].map((c, k) => c ^ multiply(factor, rows[col][k]));
+    }
+  }
+  return rows.map((row) => row[n]);
+}
+
 /**
  * The generator polynomial for n error correction codewords: (x − 2⁰)(x − 2¹)…(x − 2^(n−1)) (Annex A). Subtracting is
  * adding, so each factor is x + 2^i.
